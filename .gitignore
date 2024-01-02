@@ -1,0 +1,10 @@
+**/.git
+**/.svn
+**/.hg
+**/CVS
+**/.DS_Store
+**/Thumbs.db
+**/bun.lockb
+**/node_modules
+**/package-lock.json
+**/package.json
