@@ -20,7 +20,7 @@ class EngineInstance implements ChainClass<EngineInstance> {
 
   /** Adds a module to this instance */
   public module<A extends any[], M extends Module>(
-    m: typeof Module & { init: (...args: A) => M },
+    m: typeof Module & { init: (...args: A) => void },
     ...args: A
   ): this {
     console.log('Adding module:', m.name); // Log

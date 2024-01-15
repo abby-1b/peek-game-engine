@@ -9,10 +9,9 @@ export abstract class Module {
   /**
    * Gets called when the module is first initiated.
    */
-  public static init(...args: any[]): typeof this {
+  public static init(...args: any[]) {
     args; // Args
     this.isProperlyInitialized = true;
-    return this;
   }
 
   /**
