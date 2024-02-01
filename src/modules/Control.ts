@@ -28,4 +28,15 @@ export class Control extends Module {
       if (event.key == k) fn();
     }));
   }
+
+  /**
+   * Runs a function when the mouse (or pointer) is pressed then released
+   */
+  public static onMouseClick(
+    fn: (button: number, mouseX: number, mouseY: number) => void
+  ) {
+    window.addEventListener('pointerdown', e => {
+      fn(e.button, this.mouseX, this.mouseY);
+    });
+  }
 }
