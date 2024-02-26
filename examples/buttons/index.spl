@@ -1,0 +1,12 @@
+style.
+	* {
+		margin: 0;
+		padding: 0;
+		overflow: hidden;
+		background-color: black;
+		width: 100vw;
+		height: 100vh;
+		image-rendering: pixelated;
+	}
+script(src="./main.ts",type="module")
+canvas(id="cnv")

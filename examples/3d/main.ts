@@ -1,14 +1,16 @@
-import { Module } from '../src/Module.ts';
-import { Engine } from '../src/mod.ts';
-import { DefaultModule } from '../src/modules/DefaultModule.ts';
-import { Frame } from '../src/modules/Frame.ts';
+import { Module } from '../../src/Module.ts';
+import { Engine } from '../../src/mod.ts';
+import { DefaultModule } from '../../src/modules/DefaultModule.ts';
+import { Frame } from '../../src/modules/Frame.ts';
 
 // A point type, which holds 3D coordinates
 type Point = [number, number, number];
 
+const points: Point[] = [];
+
 /** The demo module */
 class Demo3D extends Module {
-  public static points: Point[] = [];
+  // Public static points: Point[] = [];
 
   /** Runs when the module is initiated */
   public static init() {
@@ -19,7 +21,7 @@ class Demo3D extends Module {
 
     // Initialize a few random points
     for (let a = 0; a < 30; a++) {
-      this.points.push([
+      points.push([
         Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5
       ]);
     }
@@ -30,13 +32,20 @@ class Demo3D extends Module {
   /** Draws lines every frame */
   public static frame() {
     // Project the points to 2D space
-    const projectedPoints = this.points.map(point => {
+    const projectedPoints = points.map(point => {
       return project(point, Frame.frameCount / 30);
     });
+
+    Frame.color(1, 0, 0);
 
     // Draw lines connecting the points
     for (let p = 0; p < projectedPoints.length - 1; p++) {
       Frame.line(...projectedPoints[p], ...projectedPoints[p + 1]);
+      Frame.rect(
+        ...projectedPoints[p],
+        projectedPoints[p][0] + projectedPoints[p + 1][0],
+        projectedPoints[p][1] + projectedPoints[p + 1][1],
+      );
     }
   }
 }
