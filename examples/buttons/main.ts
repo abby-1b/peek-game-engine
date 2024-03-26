@@ -1,5 +1,5 @@
 import { Module } from '../../src/Module.ts';
-import { Engine } from '../../src/mod.ts';
+import { Engine } from '../../src/peek';
 import { DefaultModule } from '../../src/modules/DefaultModule.ts';
 import { SceneManager } from '../../src/modules/SceneManager.ts';
 import { Scene } from '../../src/resources/Node2D/Scene.ts';

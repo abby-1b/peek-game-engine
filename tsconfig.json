@@ -1,9 +1,14 @@
 {
 	"compilerOptions": {
 		"target": "ES2021",
+		"lib": [ "ES6", "DOM", "ESNext.WeakRef" ],
 		"strict": true,
 		"allowImportingTsExtensions": true,
 		"noEmit": true,
 		"noImplicitAny": true,
-	}
+	},
+	"exclude": [
+		"./examples/3d",
+		"./examples/buttons",
+	]
 }
