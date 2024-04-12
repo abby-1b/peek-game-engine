@@ -1,10 +1,11 @@
 import { Peek } from '../peek';
 import { Texture } from '../resources/Texture';
 import { BLEND_MODE_MAPPINGS, BlendMode } from '../util/BlendMode';
-import { Node } from './Node';
+import { HitBox } from '../util/HitBox';
+import { PNode } from './PNode';
 
 /** A sprite draws a texture to the screen. */
-export class Sprite extends Node {
+export class Sprite extends PNode {
   public readonly texture: Texture | undefined;
   public readonly blendMode: BlendMode = BlendMode.NORMAL;
   public isCentered: boolean = false;
@@ -38,6 +39,18 @@ export class Sprite extends Node {
     this.texture.draw(
       this.isCentered ? -this.texture.width  / 2 : 0,
       this.isCentered ? -this.texture.height / 2 : 0
+    );
+  }
+
+  /** Gets this sprite's hitbox! This takes `.isCentered` into account, too. */
+  public getHitbox(): HitBox {
+    const tw = this.texture?.width ?? 0;
+    const th = this.texture?.height ?? 0;
+    return super.getHitbox(
+      this.isCentered ? -tw / 2 : 0,
+      this.isCentered ? -th / 2 : 0,
+      tw,
+      th,
     );
   }
 }

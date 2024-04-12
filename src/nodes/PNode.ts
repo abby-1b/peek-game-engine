@@ -1,8 +1,9 @@
 import { Peek } from '../peek';
 import { Vec2 } from '../resources/Vec';
+import { HitBox } from '../util/HitBox';
 
 /** Something that can be displayed on the screen */
-export class Node {
+export class PNode {
   /** Whether or not this node is hidden */
   public isHidden: boolean = false;
 
@@ -10,13 +11,13 @@ export class Node {
   public pos: Vec2 = Vec2.zero();
 
   /** This node's parent */
-  public readonly parent!: Node;
+  public readonly parent!: PNode;
 
   /** Initializes a Node */
   public constructor() {}
 
   /** The children this node has. */
-  protected children: Node[] = [];
+  protected children: PNode[] = [];
 
   private isPreloaded: boolean = false;
 
@@ -35,19 +36,84 @@ export class Node {
     return this;
   }
 
+  /** Gets this node's hitbox. */
+  public getHitbox(
+    xOffset: number = 0,
+    yOffset: number = 0,
+    overrideW: number = 0,
+    overrideH: number = 0
+  ): HitBox {
+    const ret = {
+      x: this.pos.x + xOffset, y: this.pos.y + yOffset,
+      w: overrideW, h: overrideH
+    };
+
+    let parent = this.parent;
+    while (parent != undefined) {
+      ret.x += parent.pos.x;
+      ret.y += parent.pos.y;
+      parent = parent.parent;
+    }
+
+    return ret;
+  }
+
+  // CHILD METHODS
+  
   /** Adds children to this node */
-  public add(...children: Node[]): this {
+  public add(...children: PNode[]): this {
     for (const child of children) {
       // Set the child's parent to be `this`
       // This is the only place that changes a child's parent
-      (child.parent as { parent: Node }) = this;
+      (child.parent as { parent: PNode }) = this;
 
       // Add the child to our set of children
-      (this.children as Node[]).push(child);
+      (this.children as PNode[]).push(child);
     }
 
     // Return this
     return this;
+  }
+
+  /** Removes some children from this node */
+  public remove(...children: PNode[]): this {
+    // Replace children with undefined
+    for (let i = 0; i < this.children.length; i++) {
+      if (children.includes(this.children[i])) {
+        (this.children as unknown as (PNode | undefined)[])[i] = undefined;
+      }
+    }
+
+    // Actually remove (rolling!)
+    let insert = -1;
+    let search = 0;
+    const len = this.children.length;
+    while (++insert < len) {
+      if (this.children[insert] != undefined) continue;
+      search = insert;
+      while (
+        search < len &&
+        this.children[++search] == undefined
+      );
+
+      if (search >= len) break;
+
+      this.children[insert] = this.children[search];
+      (this.children as unknown as (PNode | undefined)[])[search] = undefined;
+    }
+
+    // Pop undefined from end
+    while (
+      this.children.length > 0 &&
+      this.children[this.children.length - 1] == undefined
+    ) this.children.pop();
+
+    return this;
+  }
+
+  /** Removes children from this node given their indices */
+  public removeIndex(...indices: number[]): this {
+    return this.remove(...this.children.filter((c, i) => indices.includes(i)));
   }
 
   /** Hides this node */
@@ -127,6 +193,13 @@ export class Node {
     for (const child of this.children) {
       child.drawCaller();
     }
+    
+    // Draw the hitbox!
+    const hb = this.getHitbox();
+    Peek.ctx.strokeStyle = 'red';
+    Peek.ctx.beginPath();
+    Peek.ctx.rect(0.5 - 16, 0.5 - 16, hb.w - 1, hb.h - 1);
+    Peek.ctx.stroke();
 
     // Un-transform
     Peek.ctx.setTransform(transform);

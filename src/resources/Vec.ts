@@ -10,7 +10,119 @@ export class Vec2 {
   /** Constructs a 2D Vector */
   public constructor(public x: number, public y: number) {}
 
-  // TODO: implement vector methods
+
+  // VECTOR MATH
+
+  /** Adds the values of another vector to this one */
+  public add(x: number, y: number) {
+    this.x += x;
+    this.y += y;
+  }
+
+  /** Adds the values of another vector to this one */
+  public addVec(v: Vec2) {
+    this.x += v.x;
+    this.y += v.y;
+  }
+  
+  /** Adds the values of another vector to this one */
+  public sub(x: number, y: number) {
+    this.x -= x;
+    this.y -= y;
+  }
+
+  /** Adds the values of another vector to this one */
+  public subVec(v: Vec2) {
+    this.x -= v.x;
+    this.y -= v.y;
+  }
+
+  /** Multiplies this vector by a scalar value */
+  public mul(x: number, y: number) {
+    this.x *= x;
+    this.y *= y;
+  }
+
+  /** Multiplies this vector by another vector (component-wise) */
+  public mulVec(v: Vec2) {
+    this.x *= v.x;
+    this.y *= v.y;
+  }
+
+  /** Multiplies this vector by a scalar value */
+  public mulScalar(scalar: number) {
+    this.x *= scalar;
+    this.y *= scalar;
+  }
+
+  /** Divides this vector by a scalar value */
+  public div(x: number, y: number): void {
+    this.x /= x;
+    this.y /= y;
+  }
+
+  /** Divides this vector by another vector (component-wise) */
+  public divVec(v: Vec2): void {
+    this.x /= v.x;
+    this.y /= v.y;
+  }
+
+  /** Divides this vector by a scalar value */
+  public divScalar(scalar: number) {
+    this.x /= scalar;
+    this.y /= scalar;
+  }
+
+  /** Adds the values of another vector to this one and returns */
+  public addRet(x: number, y: number): Vec2 {
+    return new Vec2(this.x + x, this.y + y);
+  }
+
+  /** Adds the values of another vector to this one and returns */
+  public addVecRet(v: Vec2): Vec2 {
+    return new Vec2(this.x + v.x, this.y + v.y);
+  }
+
+  /** Subtracts the values of another vector from this one and returns */
+  public subRet(x: number, y: number): Vec2 {
+    return new Vec2(this.x - x, this.y - y);
+  }
+
+  /** Subtracts the values of another vector from this one and returns */
+  public subVecRet(v: Vec2): Vec2 {
+    return new Vec2(this.x - v.x, this.y - v.y);
+  }
+
+  /** Multiplies this vector by a scalar value and returns */
+  public mulRet(x: number, y: number): Vec2 {
+    return new Vec2(this.x * x, this.y * y);
+  }
+
+  /** Multiplies this vector by another vector and returns */
+  public mulVecRet(v: Vec2): Vec2 {
+    return new Vec2(this.x * v.x, this.y * v.y);
+  }
+
+  /** Multiplies this vector by a scalar value and returns */
+  public mulScalarRet(scalar: number): Vec2 {
+    return new Vec2(this.x * scalar, this.y * scalar);
+  }
+
+  /** Divides this vector by a scalar value and returns */
+  public divRet(x: number, y: number): Vec2 {
+    return new Vec2(this.x / x, this.y / y);
+  }
+
+  /** Divides this vector by another vector and returns */
+  public divVecRet(v: Vec2): Vec2 {
+    return new Vec2(this.x / v.x, this.y / v.y);
+  }
+
+  /** Divides this vector by a scalar value and returns */
+  public divScalarRet(scalar: number): Vec2 {
+    return new Vec2(this.x / scalar, this.y / scalar);
+  }
+
 
   // SETTING
 
@@ -23,6 +135,22 @@ export class Vec2 {
   public setVec(v: Vec2) {
     this.x = v.x;
     this.y = v.y;
+  }
+
+  /**
+   * Normalizes this vector to be of length 1.
+   * If the vector is (0, 0), it remains at (0, 0).
+   */
+  public normalize() {
+    const len = Math.hypot(this.x, this.y);
+    if (len == 0) return;
+    this.x /= len;
+    this.y /= len;
+  }
+
+  /** Gets the length of this vector */
+  public length() {
+    return Math.hypot(this.x, this.y);
   }
 
   /** Spreads this vector in a radius around a position */
@@ -39,6 +167,7 @@ export class Vec2 {
     this.x = x + nx * radius;
     this.y = y + ny * radius;
   }
+
   /** Spreads this vector in a radius around another vector */
   public spreadVec(v: Vec2, radius: number) {
     return this.spread(v.x, v.y, radius);
@@ -71,6 +200,7 @@ export class Vec2 {
     return this.spreadRange(v.x, v.y, rangeNear, rangeFar);
   }
 
+  
   // INTERPOLATION
 
   /** Linearly interpolates to an XY position by a given amount */

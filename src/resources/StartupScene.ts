@@ -16,15 +16,16 @@ class WiggleSprite extends Sprite {
       Peek.screenWidth / 2 + (Math.random() * 10) - 7,
       0.1
     );
-    console.log(this.pos);
   }
 }
 
 /** The Peek startup scene! */
 export class StartupScene extends Scene {
+  private particles: WiggleSprite[] = [];
 
   /** Makes the startup scene, and sets the scene that comes after it. */
   public constructor(public afterScene: Scene) {
+    Peek.preLoadScene(afterScene);
     super();
   }
 
@@ -33,7 +34,7 @@ export class StartupScene extends Scene {
 
     // Add the background and logo
     this.add(
-      // New FillRect(Color.WHITE),
+      new FillRect(Color.WHITE),
       new Sprite()
         .setTexture(Texture.load('../../assets/logo-dark.png'))
         .run(s => s.pos.set(Peek.screenWidth / 2, Peek.screenHeight / 2))
@@ -42,7 +43,7 @@ export class StartupScene extends Scene {
     );
     
     // Add the particles
-    const particleColor = new Color(16);
+    const particleColor = new Color(20);
     const particleSize = 6;
     const particleCount = 32;
     for (let i = 0; i < particleCount; i++) {
@@ -60,15 +61,25 @@ export class StartupScene extends Scene {
         (Peek.screenWidth + Peek.screenHeight) * 2
       );
       this.add(particle);
+      this.particles.push(particle);
     }
 
   }
 
   /** Animates the startup sequence */
   protected process(): void {
-    if (Peek.frameCount == 120) {
+    
+    if (Peek.frameCount == 100) {
+      // Change background
       (this.children[0] as FillRect).color = Color.BLACK;
+
+      // Show logo
       (this.children[1] as Sprite).show();
+
+      // Remove particles
+      this.remove(...this.particles);
+      this.particles = [];
+
     } else if (Peek.frameCount == 240) {
       Peek.loadScene(this.afterScene);
     }

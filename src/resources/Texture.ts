@@ -494,7 +494,10 @@ export class Texture {
   });
 
   // Size of this texture
+
+  /** The width of this texture */
   public readonly width: number;
+  /** The height of this texture */
   public readonly height: number;
 
   // Atlas position
@@ -574,13 +577,11 @@ export class Texture {
 
   /** Sets a pixel within the texture */
   public setPixel(x: number, y: number, color: Color) {
-    // TODO: inject debugger logic to check bounds!
     TextureAtlas.setPixel(x + this.atlasX, y + this.atlasY, color);
   }
 
   /** Multiplies the alpha of a single pixel. Takes alpha as 0-255 */
   public fadePixel(x: number, y: number, alpha: number) {
-    // TODO: inject debugger logic to check bounds!
     TextureAtlas.fadePixel(x + this.atlasX, y + this.atlasY, alpha);
   }
 
@@ -630,41 +631,3 @@ export class Texture {
 export function atlasCleanup() {
   TextureAtlas.cleanup();
 }
-
-/* DEBUG
-window.Texture = Texture;
-window.TextureAtlas = TextureAtlas;
-export const freeRects = TextureAtlas.freeRects;
-export const usedRects = TextureAtlas.usedRects;
-function situation(
-  count: number,
-  keep: number,
-  tileSize: number,
-  tileRange: [number, number],
-): AtlasRect[] {
-  const positions: AtlasRect[] = [];
-  for (let i = 0; i < count; i++) {
-    const pos = TextureAtlas.requestSize(
-      tileSize * (tileRange[0] + ~~(Math.random()*(tileRange[1]-tileRange[0]))),
-      tileSize * (tileRange[1] + ~~(Math.random()*(tileRange[1]-tileRange[0]))),
-    );
-    (pos as unknown as {idx: number}).idx = Math.random();
-    positions.push(pos);
-  }
-
-  // Shuffle positions!
-  positions.sort((a, b) => {
-    return (a as unknown as {idx: number}).idx
-      - (b as unknown as {idx: number}).idx;
-  });
-  
-  for (let i = 0; i < count - keep; i++) {
-    TextureAtlas.freePos([ positions[i].x, positions[i].y ]);
-  }
-
-  // Console.log('Atlas size:', TextureAtlas.atlasCanvas.width);
-  return positions.slice(count - keep);
-}
-window.situation = situation;
-
-*/

@@ -5,6 +5,7 @@ export class Color {
   public static TRANSPARENT = new Color(0, 0).fillStylePreInit();
   public static BLACK = new Color(0).fillStylePreInit();
   public static WHITE = new Color(255).fillStylePreInit();
+  public static CUM = new Color(238, 257, 222, 156).fillStylePreInit();
   public static RED = new Color(255, 0, 0).fillStylePreInit();
   public static GREEN = new Color(0, 255, 0).fillStylePreInit();
   public static BLUE = new Color(0, 0, 255).fillStylePreInit();

@@ -2,6 +2,7 @@ import { Scene } from './nodes/Scene';
 import { StartupScene } from './resources/StartupScene';
 import { atlasCleanup } from './resources/Texture';
 import { Vec2 } from './resources/Vec';
+import { Debugger } from './util/debugger';
 
 interface PeekStartupOptions {
   /** The canvas to render on. If none is provided, one is made. */
@@ -9,6 +10,9 @@ interface PeekStartupOptions {
 
   /** If the engine should try going fullscreen. Defaults to false. */
   fullScreen?: boolean,
+
+  /** If the engine should enable debug tools */
+  debug?: boolean,
 }
 
 /** The main Peek engine class */
@@ -62,7 +66,16 @@ export class Peek {
     // Setup the context
     this.ctx = this.canvas.getContext('2d')!;
 
-    this.loadScene(new StartupScene(game));
+    if (options.debug) {
+      // Debug mode!
+      Debugger.init();
+
+      // Don't do the startup scene, so we don't go mad.
+      this.loadScene(game);
+    } else {
+      // Not in debug mode, so load the startup scene
+      this.loadScene(new StartupScene(game));
+    }
 
     // Start the frame loop
     setInterval(() => this.frame(), 1000 / 60);
@@ -76,8 +89,14 @@ export class Peek {
       // Clear the screen
       this.ctx.clearRect(0, 0, this.screenWidth, this.screenHeight);
 
+      const scene = this.scenes[this.loadedSceneID];
+
+      // Process the scene...
+      (scene as unknown as {processCaller: () => void})
+        .processCaller();
+
       // Draw the scene
-      (this.scenes[this.loadedSceneID] as unknown as {drawCaller: () => void})
+      (scene as unknown as {drawCaller: () => void})
         .drawCaller();
     }
 
@@ -146,6 +165,9 @@ export class Peek {
     await (scene as unknown as {preload: () => Promise<void>}).preload();
 
     // TODO: Make sure the scene's assets are loaded (somehow)
+
+    // Call the scene's ready function!
+    (scene as unknown as {ready: () => void}).ready();
 
     // Finally, add the scene
     this.scenes[scene.sceneID] = scene;

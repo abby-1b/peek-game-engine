@@ -1,9 +1,9 @@
 import { Peek } from '../peek';
 import { Color } from '../resources/Color';
-import { Node } from './Node';
+import { PNode } from './PNode';
 
 /** A rectangle filled with a single color. */
-export class FillRect extends Node {
+export class FillRect extends PNode {
   public color: Color;
 
   /** Initializes a FillRect */
