@@ -16,8 +16,8 @@ export class PNode {
   /** Initializes a Node */
   public constructor() {}
 
-  /** The children this node has. */
-  protected children: PNode[] = [];
+  /** This node's children */
+  public children: PNode[] = [];
 
   private isPreloaded: boolean = false;
 
@@ -54,6 +54,8 @@ export class PNode {
       ret.y += parent.pos.y;
       parent = parent.parent;
     }
+    // Ret.x = ~~ret.x;
+    // Ret.y = ~~ret.y;
 
     return ret;
   }
@@ -65,7 +67,8 @@ export class PNode {
     for (const child of children) {
       // Set the child's parent to be `this`
       // This is the only place that changes a child's parent
-      (child.parent as { parent: PNode }) = this;
+      (child as { parent: PNode }).parent = this;
+      child.moved();
 
       // Add the child to our set of children
       (this.children as PNode[]).push(child);
@@ -77,14 +80,23 @@ export class PNode {
 
   /** Removes some children from this node */
   public remove(...children: PNode[]): this {
+    /*
+    This function is made to remove multiple children at once, so has a big
+    performance optimization to make it faster than splicing each child out
+    individually. First, it sets all the removed children to undefined, then it
+    rolls the remaining children over to the empty spots.
+    */
+
     // Replace children with undefined
     for (let i = 0; i < this.children.length; i++) {
       if (children.includes(this.children[i])) {
+        (this.children[i] as { parent: PNode | undefined }).parent = undefined;
+        this.children[i].moved();
         (this.children as unknown as (PNode | undefined)[])[i] = undefined;
       }
     }
 
-    // Actually remove (rolling!)
+    // Actually remove (roll children back)
     let insert = -1;
     let search = 0;
     const len = this.children.length;
@@ -127,6 +139,13 @@ export class PNode {
     return this;
   }
 
+  /**
+   * Ran when this node is "moved". Moving includes being added to a scene,
+   * being reparented, being removed from a scene, or anything that changes this
+   * node's '.parent' property.
+   */
+  protected moved() {}
+
   // PROCESSING METHODS
 
   /**
@@ -138,7 +157,8 @@ export class PNode {
     for (const child of this.children) {
       child.preloadCaller();
     }
-    // Call *this* preload function after the children are loaded.
+
+    // Call *this* preload function after the children are loaded
     this.preload();
   }
 
@@ -159,13 +179,13 @@ export class PNode {
    * engine to make overriding easier! If you want to override the process
    * method, try overriding `.process()`.
    */
-  private processCaller() {
+  private processCaller(delta: number) {
     // TODO: if (this.isPaused)
 
     // Call the process function (recursively)
-    this.process();
+    this.process(delta);
     for (const child of this.children) {
-      child.process();
+      child.processCaller(delta);
     }
   }
 
@@ -173,7 +193,7 @@ export class PNode {
    * Processes game logic! Ran every frame at some point before `.draw()`,
    * but shouldn't be used for drawing things!
    */
-  protected process() {}
+  protected process(delta: number) { delta; }
 
   /**
    * Calls `.draw()`, then its children's. This is used internally by the
@@ -193,14 +213,21 @@ export class PNode {
     for (const child of this.children) {
       child.drawCaller();
     }
-    
+
+    /*
     // Draw the hitbox!
     const hb = this.getHitbox();
-    Peek.ctx.strokeStyle = 'red';
+    Peek.ctx.strokeStyle = `rgb(${nesting * 64}, 50, 50)`;
     Peek.ctx.beginPath();
-    Peek.ctx.rect(0.5 - 16, 0.5 - 16, hb.w - 1, hb.h - 1);
+    Peek.ctx.rect(
+      hb.x + 0.5,
+      hb.y + 0.5,
+      hb.w == 0 ? 0.01 : hb.w - 1,
+      hb.h == 0 ? 0.01 : hb.h - 1
+    );
     Peek.ctx.stroke();
-
+    */
+    
     // Un-transform
     Peek.ctx.setTransform(transform);
   }

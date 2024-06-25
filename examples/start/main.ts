@@ -12,9 +12,13 @@ import { Sprite } from '../../src/nodes/Sprite';
 import { BlendMode } from '../../src/util/BlendMode';
 import { randomRange } from '../../src/util/math';
 import { Scene } from '../../src/nodes/Scene';
-import { Control } from '../../src/control/Control';
+import { Control, Controller } from '../../src/control/Control';
 import { Vec2 } from '../../src/resources/Vec';
 import { DynamicBody } from '../../src/nodes/physics/DynamicBody';
+import { Particles } from '../../src/nodes/Particles';
+import { StaticBody } from '../../src/nodes/physics/StaticBody';
+import { Physics } from '../../src/systems/Physics';
+import { Gravity } from '../../src/systems/Gravity';
 
 // Nodes
 // Declare const Box: any;
@@ -29,19 +33,21 @@ declare const Rect: any;
 /**  */
 class TestGame extends Scene {
   protected player!: DynamicBody;
-
-  protected speed: Vec2 = Vec2.zero();
+  protected ground!: StaticBody;
+  protected controller = Control.simpleAddController();
 
   /**  */
   protected ready(): void {
-    this.player = new DynamicBody().add(
-      new Sprite()
-        .setTexture(Texture.load('../../assets/logo.png'))
-        .setCentered(true)
-    );
+    // Setup controller
+
+    // Setup scene
     this.add(
       new FillRect(Color.BLACK),
-      this.player,
+      this.player = new DynamicBody().setSize(32, 32).add(
+        new Sprite()
+          .setTexture(Texture.load('../../assets/logo.png'))
+      ),
+      this.ground = new StaticBody().setSize(64, 8)
       /*New Character().add(
         new Sprite().setTexture(Gen.bitNoise(8, 8, {
           colors: [ Color.WHITE, Color.TRANSPARENT ]
@@ -51,19 +57,29 @@ class TestGame extends Scene {
       // New Particles(new Rect(0, -1, 128, 1))
     );
 
-    const v = new Vec2(10, 1);
-    v.div(10, 0);
-    console.log(v);
+    this.player.pos.add(Peek.screenWidth / 2, Peek.screenHeight / 2);
+    this.ground.pos.add(Peek.screenWidth / 2, Peek.screenHeight * 0.9);
+  }
+  
+  /**  */
+  protected process(): void {
+    this.player.acceleration.set(
+      this.controller.direction.x,
+      this.controller.direction.y
+    );
   }
 
   /**  */
-  protected process(): void {
-    this.player.pos.addVec(Control.direction);
-    this.speed.addVec(Control.direction);
-    this.speed.mulScalar(0.9);
-
-    this.player.pos.addVec(this.speed.mulScalarRet(0.1));
+  protected draw() {
+    Peek.ctx.fillStyle = Color.RED.fillStyle();
+    // Console.log(this.controller.pointer + '');
+    Peek.ctx.fillRect(...this.controller.pointer.rounded().asTuple(), 5, 5);
   }
 }
 
+// Peek.screenSize(256, 256);
+Peek.enableSystems(
+  Physics,
+  Gravity
+);
 Peek.start(new TestGame(), { debug: true });

@@ -138,8 +138,8 @@ export class Vec2 {
   }
 
   /**
-   * Normalizes this vector to be of length 1.
-   * If the vector is (0, 0), it remains at (0, 0).
+   * Normalizes this vector to be of length 1
+   * If the vector is (0, 0), it remains at (0, 0)
    */
   public normalize() {
     const len = Math.hypot(this.x, this.y);
@@ -148,9 +148,10 @@ export class Vec2 {
     this.y /= len;
   }
 
-  /** Gets the length of this vector */
-  public length() {
-    return Math.hypot(this.x, this.y);
+  /** Rounds the X and Y components (to the nearest integer) */
+  public round() {
+    this.x = Math.round(this.x);
+    this.y = Math.round(this.y);
   }
 
   /** Spreads this vector in a radius around a position */
@@ -237,5 +238,56 @@ export class Vec2 {
   public nerpVec(v: Vec2, i: number, n: number) {
     this.x = nerp(this.x, v.x, i, n);
     this.y = nerp(this.y, v.y, i, n);
+  }
+
+  // FETCHING
+
+  /** Gets the length of this vector */
+  public length() {
+    return Math.hypot(this.x, this.y);
+  }
+
+  /**
+   * Normalizes this vector to be of length 1
+   * If the vector is (0, 0), it remains at (0, 0)
+   */
+  public normalized() {
+    const len = Math.hypot(this.x, this.y);
+    if (len == 0) return this.copy();
+    return new Vec2(
+      this.x / len,
+      this.y / len
+    );
+  }
+
+  /**
+   * Reurns a copy of this vector with its X and Y
+   * components rounded (to the nearest integer)
+   */
+  public rounded() {
+    return new Vec2(
+      Math.round(this.x),
+      Math.round(this.y)
+    );
+  }
+
+  /** Returns a copy of this vector, which can be mutated independently. */
+  public copy() {
+    return new Vec2(this.x, this.y);
+  }
+
+  /** Returns a tuple containing the X and Y values of this vector */
+  public asTuple(): [ number, number ] {
+    return [ this.x, this.y ];
+  }
+
+  /** Returns true if this vector is zero, and false otherwise */
+  public isZero(): boolean {
+    return this.x == 0 && this.y == 0;
+  }
+
+  /** Returns a string in the format `Vec2(x, y)` */
+  public toString() {
+    return `Vec2(${this.x}, ${this.y})`;
   }
 }

@@ -8,7 +8,7 @@ import { PNode } from './PNode';
 export class Sprite extends PNode {
   public readonly texture: Texture | undefined;
   public readonly blendMode: BlendMode = BlendMode.NORMAL;
-  public isCentered: boolean = false;
+  public isCentered: boolean = true;
 
   /** Sets the texture for this sprite */
   public setTexture(texture: Texture): this {
@@ -26,19 +26,23 @@ export class Sprite extends PNode {
    * Changes whether this sprite displays with the origin at the center,
    * or the top-left.
    */
-  public setCentered(isCentered: boolean = true): this {
+  public setCentered(isCentered: boolean): this {
     this.isCentered = isCentered;
     return this;
   }
 
   /** Draws this Sprite */
   protected draw() {
+    // Don't draw if there's no texture
     if (!this.texture) return;
+
+    // Set the blend mode
     Peek.ctx.globalCompositeOperation = BLEND_MODE_MAPPINGS[this.blendMode];
-    // Console.log(this.pos);
+
+    // Draw the texture
     this.texture.draw(
-      this.isCentered ? -this.texture.width  / 2 : 0,
-      this.isCentered ? -this.texture.height / 2 : 0
+      this.isCentered ? ~~(-this.texture.width  / 2) : 0,
+      this.isCentered ? ~~(-this.texture.height / 2) : 0
     );
   }
 
@@ -47,8 +51,8 @@ export class Sprite extends PNode {
     const tw = this.texture?.width ?? 0;
     const th = this.texture?.height ?? 0;
     return super.getHitbox(
-      this.isCentered ? -tw / 2 : 0,
-      this.isCentered ? -th / 2 : 0,
+      ~~(this.isCentered ? -tw / 2 : 0),
+      ~~(this.isCentered ? -th / 2 : 0),
       tw,
       th,
     );

@@ -38,7 +38,6 @@ export class StartupScene extends Scene {
       new Sprite()
         .setTexture(Texture.load('../../assets/logo-dark.png'))
         .run(s => s.pos.set(Peek.screenWidth / 2, Peek.screenHeight / 2))
-        .setCentered()
         .hide()
     );
     
@@ -54,7 +53,7 @@ export class StartupScene extends Scene {
             colors: [ particleColor, Color.TRANSPARENT ]
           })
             .maskCircle(true)
-        ).setCentered();
+        );
       particle.pos.spreadRangeVec(
         Peek.center,
         Peek.screenWidth + Peek.screenHeight,

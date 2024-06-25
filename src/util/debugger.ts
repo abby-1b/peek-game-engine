@@ -1,4 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { Input } from '../control/inputs/Input';
+import { PNode } from '../nodes/PNode';
+import { Peek } from '../peek';
 import { Texture } from '../resources/Texture';
 import { Vec2 } from '../resources/Vec';
 
@@ -10,7 +13,7 @@ type HookReturn =
 /** Helps with debugging! The main feature of Peek! */
 export class Debugger {
   /** Initializes the debugger. */
-  public static init() {
+  public static async init() {
     // Hook into `Vec2`
     this.runBefore(Vec2, 'div', function(x, y) {
       console.log('Dividing:', x, y);
@@ -35,13 +38,69 @@ export class Debugger {
         Debugger.debugLog('Fading pixel out of bounds!');
       }
     });
+
+    // Hook into `Input`
+    this.runBefore(Input, 'onInitialize', function() {
+      Debugger.debugLog('Please override `onInitialize` for this input.');
+    });
+    this.runBefore(Input, 'onDestroy', function() {
+      Debugger.debugLog('Please override `onDestroy` for this input.');
+    });
+
+    // Hook into `Peek`
+    this.runBefore(Peek, 'enableSystems', function() {
+      // Ensure systems are loaded before loading a scene!
+      if ((this as any).loadedSceneID != -1) {
+        Debugger.debugLog('Tried enabling systems after loading scene!');
+      }
+    }, true);
+    const hitboxDrawFn = (child: PNode, nest: number) => {
+      // Draw child hitboxes
+      for (const c of child.children) {
+        hitboxDrawFn(c, nest + 1);
+      }
+
+      // Draw this hitbox
+      const hb = child.getHitbox();
+      Peek.ctx.strokeStyle = 'rgb(255, 0, 0)';
+      Peek.ctx.beginPath();
+      Peek.ctx.rect(
+        ~~hb.x + 0.5,
+        ~~hb.y + 0.5,
+        hb.w == 0 ? 0.01 : hb.w - 1,
+        hb.h == 0 ? 0.01 : hb.h - 1
+      );
+      Peek.ctx.stroke();
+    };
+    this.runAfter(Peek, 'frame', function() {
+      // Draw the hitboxes!
+      const scene = Peek.scenes[(Peek as any).loadedSceneID];
+      if (scene !== 0) {
+        hitboxDrawFn(scene, 0);
+      }
+    }, true);
   }
 
   /** Prints a debug message to the console. */
   private static debugLog(message: string) {
-    const trace = new Error().stack?.split('\n').slice(3).join('\n');
-    console.warn(`DEBUGGER: ${message}` + (trace ? `\n${trace}` : ''));
+    let trace = new Error().stack?.split('\n').slice(3).join('\n');
+    if (trace) { trace = '\n' + trace; }
+    console.warn(`DEBUGGER: ${message}${trace}`);
   }
+
+  // Hook (before)
+
+  private static runBefore<T>(
+    injectInto: new (...args: any[]) => T,
+    methodName: string,
+    hookFunction: (this: T, ...args: any[]) => HookReturn | void,
+  ): void;
+  private static runBefore<T>(
+    injectInto: T,
+    methodName: string,
+    hookFunction: (this: T, ...args: any[]) => HookReturn | void,
+    isStatic: true
+  ): void;
 
   /**
    * Makes a hook function run before its overriden function.
@@ -49,44 +108,106 @@ export class Debugger {
    * @param methodName The method to inject into
    * @param hookFunction The code to run before the method runs
    */
-  private static runBefore<
+  private static runBefore<T>(
+    injectInto: any,
+    methodName: string,
+    hookFunction: (this: T, ...args: any) => HookReturn | void,
+    isStatic: boolean = false
+  ) {
+    const baseFnHolder = isStatic ? injectInto : injectInto.prototype;
+    if (!(methodName in baseFnHolder)) {
+      console.error(
+        `DEBUGGER: Can't override \`${methodName.toString()}\` in`,
+        baseFnHolder,
+        'as it\'s not a function.'
+      );
+      return;
+    }
+
+    // Save the old function
+    const oldFn = baseFnHolder[methodName] as (...args: any[]) => any;
+
+    const debugMethodName = methodName + '_withDebuggerHook';
+    const compoundFunctionHolder = {
+      /**
+       * Construct the override function, which runs the hookFunction first,
+       * then the normal function. If the hook function returns with `override`
+       * set to true, the returned object's `value` is returned instead.
+       */
+      [debugMethodName]: function(this: any, ...args: any[]) {
+        const ret = (hookFunction as any).bind(this)(...args);
+        if (ret && ret.override) { return ret.value; }
+        return oldFn.bind(this)(...args);
+      }
+    };
+
+    // Inject the function!
+    baseFnHolder[methodName] = compoundFunctionHolder[debugMethodName];
+  }
+
+  // Hook (after)
+
+  private static runAfter<
     T,
     K extends keyof T & string,
     F extends T[K] & ((...args: any[]) => any)
   >(
     injectInto: new (...args: any[]) => T,
-    methodName: K,
-    hookFunction: (this: T, ...args: Parameters<F>) => HookReturn | void
+    methodName: K | string,
+    hookFunction: (this: T, ...args: Parameters<F>) => HookReturn | void,
+  ): void;
+  private static runAfter<
+    T,
+    K extends keyof T & string,
+    F extends T[K] & ((...args: any[]) => any)
+  >(
+    injectInto: T,
+    methodName: K | string,
+    hookFunction: (this: T, ...args: Parameters<F>) => HookReturn | void,
+    isStatic: true
+  ): void;
+
+  /**
+   * Makes a hook function run after its overriden function.
+   * @param injectInto The class to inject into
+   * @param methodName The method to inject into
+   * @param hookFunction The code to run before the method runs
+   */
+  private static runAfter<T>(
+    injectInto: any,
+    methodName: string,
+    hookFunction: (this: T, ...args: any) => HookReturn | void,
+    isStatic: boolean = false
   ) {
-    if (!(methodName in injectInto.prototype)) {
+    const baseFnHolder = isStatic ? injectInto : injectInto.prototype;
+    if (!(methodName in baseFnHolder)) {
       console.error(
-        `DEBUGGER: Can't override \`${methodName.toString()}\` in ` +
-        `\`${injectInto}\`, as it's not a function.`
+        `DEBUGGER: Can't override \`${methodName.toString()}\` in`,
+        baseFnHolder,
+        'as it\'s not a function.'
       );
+      return;
     }
 
     // Save the old function
-    const oldFn = injectInto.prototype[methodName] as (...args: any[]) => any;
+    const oldFn = baseFnHolder[methodName] as (...args: any[]) => any;
 
-    /**
-     * Construct the override function, which runs the hookFunction first, then
-     * the normal function. If the hook function returns with `override` set to
-     * true, the returned object's `value` is returned instead.
-     */
-    const compoundFunction = function(this: any, ...args: any[]) {
-      const ret = (hookFunction as any).bind(this)(...args);
-      if (ret && ret.override) { return ret.value; }
-      oldFn.bind(this)(...args);
+    const debugMethodName = methodName + '_withDebuggerHook';
+    const compoundFunctionHolder = {
+      /**
+       * Construct the override function, which runs the hookFunction first,
+       * then the normal function. If the hook function returns with `override`
+       * set to true, the returned object's `value` is returned instead.
+       */
+      [debugMethodName]: function(this: any, ...args: any[]) {
+        const realReturn = oldFn.bind(this)(...args);
+        const ret = (hookFunction as any).bind(this)(...args);
+        if (ret && ret.override) { return ret.value; }
+        return realReturn;
+      }
     };
 
-    // Make the function have the correct name in the stack trace (for logging)
-    Object.defineProperty(
-      compoundFunction,
-      'name',
-      { value: methodName, writable: false }
-    );
-
     // Inject the function!
-    injectInto.prototype[methodName] = compoundFunction;
+    baseFnHolder[methodName] = compoundFunctionHolder[debugMethodName];
   }
 }

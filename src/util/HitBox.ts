@@ -6,3 +6,13 @@ export interface HitBox {
   w: number,
   h: number,
 }
+
+/** Checks if two hitboxes overlap */
+export function hitboxOverlaps(hba: HitBox, hbb: HitBox) {
+  return (
+    hba.x < hbb.x + hbb.w &&
+    hba.x + hba.w > hbb.x &&
+    hba.y < hbb.y + hbb.h &&
+    hba.y + hba.h > hbb.y
+  );
+}

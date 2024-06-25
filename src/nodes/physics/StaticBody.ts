@@ -1,6 +1,8 @@
 import { Vec2 } from '../../resources/Vec';
 import { HitBox } from '../../util/HitBox';
 import { PNode } from '../PNode';
+import { Physics } from '../../systems/Physics';
+import { Peek } from '../../peek';
 
 /**
  * A node that has physics! This body doesn't move, as it's meant to be used as
@@ -8,22 +10,43 @@ import { PNode } from '../PNode';
  * top-left of its hitbox.
  */
 export class StaticBody extends PNode {
-  public readonly size = Vec2.zero();
+  public static currentBodyId: number = 0;
 
-  /** Checks if this body overlaps a given node. Uses the `getHitbox` method! */
-  public overlaps(node: PNode): boolean {
-    const hba = this.getHitbox();
-    const hbb = node.getHitbox();
-    return (
-      hba.x < hbb.x + hbb.w &&
-      hba.x + hba.w > hbb.x &&
-      hba.y < hbb.y + hbb.h &&
-      hba.y + hba.h > hbb.y
-    );
+  public readonly size = Vec2.zero();
+  public readonly bodyId: number;
+
+  /** Constructs a static body! */
+  public constructor() {
+    super();
+    this.bodyId = StaticBody.currentBodyId++;
+  }
+
+
+  /** Sets the body's size */
+  public setSize(x: number, y: number): this {
+    this.size.set(x, y);
+    return this;
   }
 
   /** Gets this node's hitbox */
   public getHitbox(): HitBox {
-    return super.getHitbox(this.size.x, this.size.y);
+    const tw = this.size.x;
+    const th = this.size.y;
+    return super.getHitbox(
+      -tw / 2,
+      -th / 2,
+      tw,
+      th,
+    );
+  }
+
+  /** Ensures the physics system has proper access to physics objects */
+  protected moved(): void {
+    const physicsSystem = Peek.getSystem(Physics);
+    if (this.parent == undefined) {
+      physicsSystem?.removeObject(this);
+    } else {
+      physicsSystem?.addObject(this);
+    }
   }
 }
