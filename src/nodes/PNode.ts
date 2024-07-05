@@ -235,7 +235,11 @@ export class PNode {
   /**
    * Draws this node! This should only be used for visuals, not for any
    * important game logic, as it's not guaranteed that this function will run
-   * consistently. If you want consistency, look at `.process(...)`!
+   * consistently. If you want consistency, look at `.process()`!
+   * 
+   * Other notes:
+   *  - The transformation is set so (0, 0) points to the node's position
+   *  - Child nodes are drawn *after* this one, so they appear in front of it
    */
   protected draw() {}
 
