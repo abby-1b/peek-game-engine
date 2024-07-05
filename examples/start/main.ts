@@ -6,7 +6,7 @@ import { PNode } from '../../src/nodes/PNode';
 import { Color } from '../../src/resources/Color';
 import { Texture } from '../../src/resources/Texture';
 import { Gen } from '../../src/resources/Gen';
-import { FillRect } from '../../src/nodes/FillRect';
+import { FillRect } from '../../src/nodes/control/FillRect';
 import { Character } from '../../src/nodes/Character';
 import { Sprite } from '../../src/nodes/Sprite';
 import { BlendMode } from '../../src/util/BlendMode';
@@ -42,7 +42,8 @@ class TestGame extends Scene {
 
     // Setup scene
     this.add(
-      new FillRect(Color.BLACK),
+      new FillRect().setColor(Color.BLACK).setWidthPercent(5),
+      new FillRect().setColor(Color.BLUE),
       this.player = new DynamicBody().setSize(32, 32).add(
         new Sprite()
           .setTexture(Texture.load('../../assets/logo.png'))
