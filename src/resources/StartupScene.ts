@@ -1,4 +1,4 @@
-import { FillRect } from '../nodes/FillRect';
+import { FillRect } from '../nodes/control/FillRect';
 import { Scene } from '../nodes/Scene';
 import { Sprite } from '../nodes/Sprite';
 import { Peek } from '../peek';
@@ -34,7 +34,7 @@ export class StartupScene extends Scene {
 
     // Add the background and logo
     this.add(
-      new FillRect(Color.WHITE),
+      new FillRect().setColor(Color.WHITE),
       new Sprite()
         .setTexture(Texture.load('../../assets/logo-dark.png'))
         .run(s => s.pos.set(Peek.screenWidth / 2, Peek.screenHeight / 2))

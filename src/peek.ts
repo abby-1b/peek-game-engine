@@ -1,29 +1,44 @@
 import { Scene } from './nodes/Scene';
-import { StartupScene } from './resources/StartupScene';
 import { atlasCleanup } from './resources/Texture';
 import { Vec2 } from './resources/Vec';
 import { Debugger } from './util/debugger';
 import { System } from './systems/System';
-import { AnyConstructorFor as Constructor } from './util/types';
+import { AnyConstructorFor } from './util/types';
 
 interface PeekStartupOptions {
   /** The canvas to render on. If none is provided, one is made. */
   canvas?: HTMLCanvasElement,
 
-  /** If the engine should try going fullscreen. Defaults to false. */
+  /**
+   * The screen's size
+   * 
+   * Adaptive: makes both sides average to the given
+   * pixel length, retaining pixel count in the process.
+   * 
+   * Strict: keeps a specific width and height, padding the sides
+   * with black bars to compensate for different aspect ratios.
+   */
+  size?: {
+    width: number,
+    height: number,
+    adaptive?: boolean
+  },
+
+  /** Whether or not the canvas should be pixelated. Defaults to false */
+  pixelated?: boolean,
+
+  /** Whether or not the engine should go fullscreen. Defaults to false. */
   fullScreen?: boolean,
 
-  /** If the engine should enable debug tools */
+  /** Whether or not the engine should enable debug tools */
   debug?: boolean,
+
+  /** The startup scene */
+  startupScene?: AnyConstructorFor<Scene>,
 }
 
 /** The main Peek engine class */
 export class Peek {
-
-  /**  */
-  private static debugTest(a: number): number {
-    return a + 123;
-  }
 
   // CANVAS
 
@@ -48,16 +63,18 @@ export class Peek {
   };
 
   /** Enables a list of systems */
-  public static enableSystems(...newSystems: Constructor<System>[]) {
+  public static enableSystems(...newSystems: AnyConstructorFor<System>[]) {
     for (const newSystem of newSystems) {
       // Ensure the system hasn't been enabled already
       if (this.getSystem(newSystem) !== undefined) continue;
-      
+
       // Instantiate and append the new system
       const system = new newSystem();
       const systemName = newSystem.name;
 
-      this.enableSystems(...system.requiredSystems as Constructor<System>[]);
+      this.enableSystems(
+        ...system.requiredSystems as AnyConstructorFor<System>[]
+      );
 
       if (this.systems.list.length == 0) {
         // Edge case, first system
@@ -73,7 +90,7 @@ export class Peek {
       const searchPriority = system.priority;
 
       while (Math.abs(startIdx - endIdx) > 1) {
-        middleIdx = ~~((startIdx + endIdx) / 2);
+        middleIdx = Math.floor((startIdx + endIdx) / 2);
         const middlePriority = this.systems.list[middleIdx].priority;
 
         if (middlePriority > searchPriority) {
@@ -97,7 +114,7 @@ export class Peek {
    * @returns The system instance (or undefined, if none was found)
    */
   public static getSystem<T extends System>(
-    system: Constructor<T>
+    system: AnyConstructorFor<T>
   ): T | undefined {
     const systemName = system.name;
     return this.systems.map.get(systemName) as T;
@@ -105,12 +122,22 @@ export class Peek {
 
   // FRAME
 
-  public static readonly screenWidth = 128;
-  public static readonly screenHeight = 128;
-  public static readonly center: Readonly<Vec2> = new Vec2(
+  public static screenWidth = 128;
+  public static screenHeight = 128;
+  public static center: Readonly<Vec2> = new Vec2(
     this.screenWidth / 2,
     this.screenHeight / 2
   );
+
+  private static screenDidResize = false;
+  private static targetWidth: number;
+  private static targetHeight: number;
+  private static isSizeAdaptive: boolean;
+
+  private static frameXOffset: number;
+  private static frameYOffset: number;
+  private static barRightSize: number;
+  private static barBottomSize: number;
 
   /** The amount of frames elapsed since the start of the engine */
   public static frameCount: number = 0;
@@ -125,13 +152,22 @@ export class Peek {
 
   /** Starts the game engine */
   public static start(game: Scene, options: PeekStartupOptions = {}) {
+    // Setup sizing
+    if (options.size) {
+      this.targetWidth = options.size.width;
+      this.targetHeight = options.size.height;
+      this.isSizeAdaptive = options.size.adaptive ?? false;
+    } else {
+      this.targetWidth = 128;
+      this.targetHeight = 128;
+      this.isSizeAdaptive = false;
+    }
+
     // Setup the canvas
     if (options.canvas) {
       this.canvas = options.canvas;
     } else {
       this.canvas = document.createElement('canvas');
-      this.canvas.width = this.screenWidth;
-      this.canvas.height = this.screenHeight;
       document.body.style.cssText =
         'width:100vw;height:100vh;margin:0;padding:0;';
       this.canvas.style.width = '100vw';
@@ -139,6 +175,8 @@ export class Peek {
       this.canvas.style.imageRendering = 'pixelated';
       document.body.appendChild(this.canvas);
     }
+    window.addEventListener('resize', () => this.screenDidResize = true);
+    this.doScreenResize();
 
     // Setup the context
     this.ctx = this.canvas.getContext('2d')!;
@@ -147,11 +185,14 @@ export class Peek {
       // Debug mode!
       Debugger.init();
 
-      // Don't do the startup scene, so we don't go mad
+      // Don't do the startup scene
       this.loadScene(game);
-    } else {
+    } else if (options.startupScene) {
       // Not in debug mode, so load the startup scene
-      this.loadScene(new StartupScene(game));
+      this.loadScene(new options.startupScene(game));
+    } else {
+      // Don't do the startup scene
+      this.loadScene(game);
     }
 
     // Start the frame loop
@@ -166,14 +207,72 @@ export class Peek {
     }, targetDelta);
   }
 
+  /** Runs every time the window is resized, and once when Peek initializes */
+  private static doScreenResize() {
+    if (this.isSizeAdaptive) {
+      // Adaptive (keep total pixel area)
+
+      this.barRightSize = 0;
+      this.barBottomSize = 0;
+      this.frameXOffset = 0;
+      this.frameYOffset = 0;
+
+      const targetPixelArea = this.targetWidth * this.targetHeight;
+      const realPixelArea = window.innerWidth * window.innerHeight;
+
+      const sizeDown = Math.sqrt(targetPixelArea / realPixelArea);
+      this.screenWidth = this.canvas.width =
+        Math.round(window.innerWidth * sizeDown);
+      this.screenHeight = this.canvas.height =
+        Math.round(window.innerHeight * sizeDown);
+    } else {
+      // Strict sizing (black bars)
+
+      this.screenWidth = this.targetWidth;
+      this.screenHeight = this.targetHeight;
+
+      const targetAspectRatio = this.targetWidth / this.targetHeight;
+      const realAspectRatio = window.innerWidth / window.innerHeight;
+
+      if (realAspectRatio > targetAspectRatio) {
+        this.canvas.width = this.targetHeight * realAspectRatio;
+        this.canvas.height = this.targetHeight;
+
+        const barSize = ~~((this.canvas.width - this.targetWidth) / 2);
+        this.barRightSize = this.canvas.width - barSize - this.targetWidth;
+        this.barBottomSize = 0;
+
+        this.frameXOffset = barSize;
+        this.frameYOffset = 0;
+      } else {
+        this.canvas.width = this.targetWidth;
+        this.canvas.height = this.targetWidth / realAspectRatio;
+
+        const barSize = ~~((this.canvas.height - this.targetHeight) / 2);
+        this.barBottomSize = this.canvas.height - barSize - this.targetHeight;
+        this.barRightSize = 0;
+
+        this.frameYOffset = barSize;
+        this.frameXOffset = 0;
+      }
+    }
+
+    this.screenDidResize = false;
+  }
+
   /** Runs every frame */
   private static frame(delta: number) {
     const scene = this.scenes[this.loadedSceneID];
+
+    if (this.screenDidResize) {
+      // Handle screen resize
+      this.doScreenResize();
+    }
+
     if (scene !== 0) {
       // The scene is loaded!
-
-      // Clear the screen
-      this.ctx.clearRect(0, 0, this.screenWidth, this.screenHeight);
+      
+      // PROCESS
 
       // Process the scene...
       (scene as unknown as {processCaller: (delta: number) => void})
@@ -184,47 +283,52 @@ export class Peek {
         system.process(delta);
       }
 
+      // DRAW
+
+      // Clear the screen
+      this.ctx.clearRect(
+        0, 0,
+        this.canvas.width, this.canvas.height
+      );
+
+      // Transform into place (for black bars)
+      const transform = this.ctx.getTransform();
+      this.ctx.translate(this.frameXOffset, this.frameYOffset);
+
       // Draw the scene
       (scene as unknown as {drawCaller: () => void})
         .drawCaller();
-    }
+      
+      // Reset the transform
+      this.ctx.setTransform(transform);
 
-    /*
-    // DEBUG: draw texture atlas rects
-    const colors = [
-      [ '#00ff00', '#00dd00', '#00bb00', '#009900' ],
-      [ '#ff0000', '#dd0000', '#bb0000', '#990000' ]
-    ];
-    let i = 0;
-    for (const rect of freeRects) {
-      this.ctx.fillStyle = 'none';
-      this.ctx.strokeStyle = colors[0][i % colors[0].length];
-      this.ctx.beginPath();
-      this.ctx.rect(rect.x + 0.5, rect.y + 0.5, rect.w - 1, rect.h - 1);
-      this.ctx.stroke();
-      rect.idx = i;
-      this.ctx.strokeText(i + '', rect.x + 2, rect.y + 8.5);
-      i++;
+      // Draw black bars
+      this.ctx.fillStyle = '#000';
+
+      if (this.frameXOffset || this.barRightSize) {
+        this.ctx.fillRect(0, 0, this.frameXOffset, this.canvas.height);
+        this.ctx.fillRect(
+          this.canvas.width - this.barRightSize, 0,
+          this.barRightSize, this.canvas.height
+        );
+      } else if (this.frameYOffset || this.barBottomSize) {
+        this.ctx.fillRect(0, 0, this.canvas.width, this.frameYOffset);
+        this.ctx.fillRect(
+          0, this.canvas.height - this.barBottomSize,
+          this.canvas.width, this.barBottomSize
+        );
+      }
+    } else {
+      // Draw black over the screen
+      this.ctx.fillStyle = '#000';
+      this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
     }
-    i = 0;
-    for (const rect of usedRects) {
-      this.ctx.fillStyle = 'none';
-      this.ctx.strokeStyle = colors[1][i % colors[0].length];
-      this.ctx.beginPath();
-      this.ctx.rect(rect.x + 0.5, rect.y + 0.5, rect.w - 1, rect.h - 1);
-      this.ctx.stroke();
-      rect.idx = i;
-      this.ctx.strokeText(i + '', rect.x + 2, rect.y + 8.5);
-      i++;
-    }
-    // For (let i = 0; i < 3; i++) atlasCleanup();
-    */
 
     // Cleanup the atlas
     atlasCleanup();
 
     // Increment the frame
-    (this as {frameCount: number}).frameCount++;
+    this.frameCount++;
   }
 
   /** Loads a scene and switches to it */
@@ -260,6 +364,25 @@ export class Peek {
 
     // Finally, add the scene
     this.scenes[scene.sceneID] = scene;
+  }
+
+  // DRAW HELPERS
+
+  /** Draws a filled rectangle given the top left point, width, and height. */
+  public static fillRect(x: number, y: number, width: number, height: number) {
+    this.ctx.fillRect(x, y, width, height);
+  }
+  
+  /** Draws a rectangle outline given the top left point, width, and height. */
+  public static rect(x: number, y: number, width: number, height: number) {
+    Peek.ctx.beginPath();
+    Peek.ctx.rect(
+      Math.floor(x) + 0.5,
+      Math.floor(y) + 0.5,
+      width - 1,
+      height - 1
+    );
+    Peek.ctx.stroke();
   }
 
 }

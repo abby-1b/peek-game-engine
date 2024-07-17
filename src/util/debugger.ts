@@ -65,33 +65,42 @@ export class Debugger {
       Peek.ctx.strokeStyle = 'rgb(255, 0, 0)';
       Peek.ctx.beginPath();
       Peek.ctx.rect(
-        ~~hb.x + 0.5,
-        ~~hb.y + 0.5,
+        Math.floor(hb.x) + 0.5,
+        Math.floor(hb.y) + 0.5,
         hb.w == 0 ? 0.01 : hb.w - 1,
         hb.h == 0 ? 0.01 : hb.h - 1
       );
       Peek.ctx.stroke();
     };
     this.runAfter(Peek, 'frame', function() {
+      // Transform into screen-space (due to black bars)
+      const transform = this.ctx.getTransform();
+      this.ctx.translate(
+        (Peek as any).frameXOffset,
+        (Peek as any).frameYOffset
+      );
+
       // Draw the hitboxes!
       const scene = Peek.scenes[(Peek as any).loadedSceneID];
       if (scene !== 0) {
         hitboxDrawFn(scene, 0);
       }
+
+      this.ctx.setTransform(transform);
     }, true);
   }
 
   /** Prints a debug message to the console. */
-  private static debugLog(message: string) {
+  private static debugLog(...parts: unknown[]) {
     let trace = new Error().stack?.split('\n').slice(3).join('\n');
     if (trace) { trace = '\n' + trace; }
-    console.warn(`DEBUGGER: ${message}${trace}`);
+    console.warn('DEBUGGER:', ...parts, trace);
   }
 
   // Hook (before)
 
   private static runBefore<T>(
-    injectInto: new (...args: any[]) => T,
+    injectInto: abstract new (...args: any[]) => T,
     methodName: string,
     hookFunction: (this: T, ...args: any[]) => HookReturn | void,
   ): void;
@@ -152,7 +161,7 @@ export class Debugger {
     K extends keyof T & string,
     F extends T[K] & ((...args: any[]) => any)
   >(
-    injectInto: new (...args: any[]) => T,
+    injectInto: abstract new (...args: any[]) => T,
     methodName: K | string,
     hookFunction: (this: T, ...args: Parameters<F>) => HookReturn | void,
   ): void;

@@ -95,7 +95,11 @@ export class Particles extends PNode {
       const lifetime = p.currLifetime / p.maxLifetime;
 
       const sz = Math.round(lerp(p.sizeBegin, p.sizeEnd, lifetime));
-      Peek.ctx.fillRect(~~(p.x - sz / 2), ~~(p.y - sz / 2), sz, sz);
+      Peek.ctx.fillRect(
+        Math.floor(p.x - sz / 2),
+        Math.floor(p.y - sz / 2),
+        sz, sz
+      );
     }
   }
 

@@ -54,8 +54,6 @@ export class PNode {
       ret.y += parent.pos.y;
       parent = parent.parent;
     }
-    // Ret.x = ~~ret.x;
-    // Ret.y = ~~ret.y;
 
     return ret;
   }
@@ -206,7 +204,7 @@ export class PNode {
 
     // Set this transform
     const transform = Peek.ctx.getTransform();
-    Peek.ctx.translate(~~this.pos.x, ~~this.pos.y);
+    Peek.ctx.translate(Math.floor(this.pos.x), Math.floor(this.pos.y));
 
     // Call the draw function (recursively)
     this.draw();
@@ -237,9 +235,9 @@ export class PNode {
    * important game logic, as it's not guaranteed that this function will run
    * consistently. If you want consistency, look at `.process()`!
    * 
-   * Other notes:
-   *  - The transformation is set so (0, 0) points to the node's position
-   *  - Child nodes are drawn *after* this one, so they appear in front of it
+   * Note that the coordinate system is transformed so that the origin (0, 0)
+   * is at the node's position. Also, child nodes are rendered after this node,
+   * so they appear in front of it.
    */
   protected draw() {}
 

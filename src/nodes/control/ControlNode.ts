@@ -31,6 +31,7 @@ interface ControlNodeParent extends PNode {
 export abstract class ControlNode extends PNode {
   public width: ControlNodeSize = [ 1, SizeType.FRACTION ];
   public height: ControlNodeSize = [ 1, SizeType.FRACTION ];
+  public controlProperties?: ControlNodeParent;
 
   /** Sets this node's width in pixels */
   public setWidthPixels(width: number): this {
@@ -76,7 +77,7 @@ export abstract class ControlNode extends PNode {
 
         currentChildOffset: 0,
 
-        horizontalAlign: true
+        horizontalAlign: false
       };
     }
     if (parent.controlProperties!.lastUpdateFrame < Peek.frameCount) {
@@ -84,7 +85,6 @@ export abstract class ControlNode extends PNode {
       parent.controlProperties!.lastUpdateFrame = Peek.frameCount;
       parent.controlProperties!.childCount = 0;
 
-      parent.controlProperties!.currentChildIndex = 0;
       parent.controlProperties!.currentChildOffset = 0;
 
       // Let totalScreenWidth = 0;
@@ -124,26 +124,26 @@ export abstract class ControlNode extends PNode {
     const transform = Peek.ctx.getTransform();
     if (parent.controlProperties!.horizontalAlign) {
       Peek.ctx.translate(
-        ~~(screenHeight * parent.controlProperties!.currentChildOffset),
+        Math.floor(screenHeight * parent.controlProperties!.currentChildOffset),
         0
       );
     } else {
       Peek.ctx.translate(
         0,
-        ~~(screenHeight * parent.controlProperties!.currentChildOffset)
+        Math.floor(screenHeight * parent.controlProperties!.currentChildOffset)
       );
     }
 
     // Call this innerDraw method
     this.innerDraw(
-      ~~(widthMultiplier * (
+      Math.floor(widthMultiplier * (
         this.width[1] == SizeType.FRACTION
           ? this.width[0] * screenWidth
           : this.width[0]
       )),
-      ~~(heightMultiplier * (
+      Math.floor(heightMultiplier * (
         this.height[1] == SizeType.FRACTION
-          ? this.height[0] * screenWidth
+          ? this.height[0] * screenHeight
           : this.height[0]
       ))
     );

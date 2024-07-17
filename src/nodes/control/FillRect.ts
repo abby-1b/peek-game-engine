@@ -20,8 +20,7 @@ export class FillRect extends ControlNode {
   /** Draws this FillRect */
   protected innerDraw(width: number, height: number) {
     // Console.log(width, height);
-    // TODO: draw the FillRect properly
     Peek.ctx.fillStyle = this.color.fillStyle();
-    Peek.ctx.fillRect(0, 0, width, height);
+    Peek.fillRect(0, 0, width, height);
   }
 }

@@ -42,8 +42,10 @@ class TestGame extends Scene {
 
     // Setup scene
     this.add(
-      new FillRect().setColor(Color.BLACK).setWidthPercent(5),
+      new FillRect().setColor(Color.RED),
+      new FillRect().setColor(Color.BLACK),
       new FillRect().setColor(Color.BLUE),
+      new FillRect().setColor(Color.GREEN),
       this.player = new DynamicBody().setSize(32, 32).add(
         new Sprite()
           .setTexture(Texture.load('../../assets/logo.png'))
@@ -83,4 +85,11 @@ Peek.enableSystems(
   Physics,
   Gravity
 );
-Peek.start(new TestGame(), { debug: true });
+Peek.start(new TestGame(), {
+  debug: true,
+  size: {
+    width: 128,
+    height: 128,
+    adaptive: true
+  }
+});

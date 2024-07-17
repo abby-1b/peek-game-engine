@@ -37,7 +37,7 @@ interface ControllerInit<T extends Record<string, ButtonInit>> {
 interface ButtonInit {
   keyboardKeys?: string[],
   gamePadButtons?: string[],
-  mouseButtons: MouseButton[],
+  mouseButtons?: MouseButton[],
 }
 
 /** Binds many input types together */
@@ -136,7 +136,7 @@ export class Controller<T extends Record<string, ButtonInit>>  {
 
     // Initialize buttons states
     const keyboardButtonMappings: Record<string, string> = {};
-    const gamePadButtonMappings: Record<string, string> = {};
+    // Const gamePadButtonMappings: Record<string, string> = {};
     
     this.buttons = {} as Record<keyof T, boolean>;
     for (const buttonName in (init.buttons ?? {})) {

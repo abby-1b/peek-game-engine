@@ -41,8 +41,8 @@ export class Sprite extends PNode {
 
     // Draw the texture
     this.texture.draw(
-      this.isCentered ? ~~(-this.texture.width  / 2) : 0,
-      this.isCentered ? ~~(-this.texture.height / 2) : 0
+      this.isCentered ? Math.floor(-this.texture.width  / 2) : 0,
+      this.isCentered ? Math.floor(-this.texture.height / 2) : 0
     );
   }
 
@@ -51,8 +51,8 @@ export class Sprite extends PNode {
     const tw = this.texture?.width ?? 0;
     const th = this.texture?.height ?? 0;
     return super.getHitbox(
-      ~~(this.isCentered ? -tw / 2 : 0),
-      ~~(this.isCentered ? -th / 2 : 0),
+      Math.floor(this.isCentered ? -tw / 2 : 0),
+      Math.floor(this.isCentered ? -th / 2 : 0),
       tw,
       th,
     );
