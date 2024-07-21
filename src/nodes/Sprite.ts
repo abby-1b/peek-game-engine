@@ -1,5 +1,6 @@
 import { Peek } from '../peek';
 import { Texture } from '../resources/Texture';
+import { BlendMode } from '../util/BlendMode';
 import { HitBox } from '../util/HitBox';
 import { PNode } from './PNode';
 
@@ -7,7 +8,8 @@ import { PNode } from './PNode';
 export class Sprite extends PNode {
   public readonly texture: Texture | undefined;
   public readonly blendMode: BlendMode = BlendMode.NORMAL;
-  public isCentered: boolean = true;
+  public isCentered = true;
+  public scale = 1;
 
   /** Sets the texture for this sprite */
   public setTexture(texture: Texture): this {
@@ -31,7 +33,7 @@ export class Sprite extends PNode {
   }
 
   /** Draws this Sprite */
-  protected draw() {
+  protected override draw() {
     // Don't draw if there's no texture
     if (!this.texture) return;
 
@@ -40,18 +42,23 @@ export class Sprite extends PNode {
 
     // Draw the texture
     this.texture.draw(
-      this.isCentered ? Math.floor(-this.texture.width  / 2) : 0,
-      this.isCentered ? Math.floor(-this.texture.height / 2) : 0
+      this.isCentered ? Math.floor(this.scale * -this.texture.width  / 2) : 0,
+      this.isCentered ? Math.floor(this.scale * -this.texture.height / 2) : 0,
+      this.scale * this.texture.width!,
+      this.scale * this.texture.height!,
     );
   }
 
   /** Gets this sprite's hitbox! This takes `.isCentered` into account, too. */
-  public getHitbox(): HitBox {
-    const tw = this.texture?.width ?? 0;
-    const th = this.texture?.height ?? 0;
+  public override getHitbox(
+    integer: boolean,
+  ): HitBox {
+    const tw = this.scale * (this.texture?.width ?? 0);
+    const th = this.scale * (this.texture?.height ?? 0);
     return super.getHitbox(
-      Math.floor(this.isCentered ? -tw / 2 : 0),
-      Math.floor(this.isCentered ? -th / 2 : 0),
+      integer,
+      Math.floor(this.isCentered ? Math.floor(-tw / 2) : 0),
+      Math.floor(this.isCentered ? Math.floor(-th / 2) : 0),
       tw,
       th,
     );
