@@ -1,2 +1,10 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
-export type AnyConstructorFor<T> = new (...args: unknown[]) => T;
+declare global {
+  interface Window {
+    Peek: any,
+    Debugger: any
+  }
+}
+
+export type AnyConstructorFor<T> = new (...args: any[]) => T;
