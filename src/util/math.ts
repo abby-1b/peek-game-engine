@@ -26,7 +26,7 @@ export function qerp(a: number, b: number, i: number) {
 }
 
 /**
- * Interpolates between two using a given a power (x ** n).
+ * Interpolates between two numbers using a given a power (x ** n).
  * @param a Start value
  * @param b End value
  * @param i Interpolate amount [0, 1]
@@ -37,6 +37,56 @@ export function nerp(a: number, b: number, i: number, n: number) {
     ? (i ** n) * (2 ** (n - 1))
     : 1 - (2 ** (n -1)) * ((1 - i) ** n);
   return a * (1 - i) + b * i;
+}
+
+/**
+ * Linearly interpolates between two angles, going through the shortest path.
+ * @param a Start angle (in radians)
+ * @param b End angle (in radians)
+ * @param i Interpolate amount [0, 1]
+ */
+export function lerpAngle(a: number, b: number, i: number) {
+  const TWO_PI = Math.PI * 2;
+  if (Math.abs(a + TWO_PI - b) < Math.abs(a - b)) {
+    a += TWO_PI;
+  } else if (Math.abs(a - TWO_PI - b) < Math.abs(a - b)) {
+    a -= TWO_PI;
+  }
+  return lerp(a, b, i);
+}
+
+/**
+ * Quadratically (x ** 2) interpolates between two angles,
+ * going through the shortest path.
+ * @param a Start angle (in radians)
+ * @param b End angle (in radians)
+ * @param i Interpolate amount [0, 1]
+ */
+export function qerpAngle(a: number, b: number, i: number) {
+  const TWO_PI = Math.PI * 2;
+  if (Math.abs(a + TWO_PI - b) < Math.abs(a - b)) {
+    a += TWO_PI;
+  } else if (Math.abs(a - TWO_PI - b) < Math.abs(a - b)) {
+    a -= TWO_PI;
+  }
+  return qerp(a, b, i);
+}
+
+/**
+ * Interpolates between two angles using a given a power (x ** n).
+ * going through the shortest path.
+ * @param a Start angle (in radians)
+ * @param b End angle (in radians)
+ * @param i Interpolate amount [0, 1]
+ */
+export function nerpAngle(a: number, b: number, i: number, n: number) {
+  const TWO_PI = Math.PI * 2;
+  if (Math.abs(a + TWO_PI - b) < Math.abs(a - b)) {
+    a += TWO_PI;
+  } else if (Math.abs(a - TWO_PI - b) < Math.abs(a - b)) {
+    a -= TWO_PI;
+  }
+  return nerp(a, b, i, n);
 }
 
 // RANOMNESS
