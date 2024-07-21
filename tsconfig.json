@@ -6,6 +6,7 @@
 		"allowImportingTsExtensions": true,
 		"noEmit": true,
 		"noImplicitAny": true,
+		"noImplicitOverride": true
 	},
 	"exclude": [
 		"./examples/3d",
