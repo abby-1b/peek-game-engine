@@ -1,7 +1,6 @@
 import { Scene } from './nodes/Scene';
 import { atlasCleanup } from './resources/Texture';
 import { Vec2 } from './resources/Vec';
-import { Debugger } from './util/debugger';
 import { System } from './systems/System';
 import { AnyConstructorFor } from './util/types';
 
@@ -29,9 +28,6 @@ interface PeekStartupOptions {
 
   /** Whether or not the engine should go fullscreen. Defaults to false. */
   fullScreen?: boolean,
-
-  /** Whether or not the engine should enable debug tools */
-  debug?: boolean,
 
   /** The startup scene */
   startupScene?: AnyConstructorFor<Scene>,
@@ -64,48 +60,55 @@ export class Peek {
 
   /** Enables a list of systems */
   public static enableSystems(...newSystems: AnyConstructorFor<System>[]) {
-    for (const newSystem of newSystems) {
-      // Ensure the system hasn't been enabled already
-      if (this.getSystem(newSystem) !== undefined) continue;
+    newSystems.map(s => this.enableSystem(s));
+  }
 
-      // Instantiate and append the new system
-      const system = new newSystem();
-      const systemName = newSystem.name;
+  /** Enables a single system with its corresponding */
+  public static enableSystem<T extends System>(
+    newSystem: AnyConstructorFor<T>,
+    ...args: ConstructorParameters<AnyConstructorFor<T>>
+  ) {
+    // Ensure the system hasn't been enabled already
+    if (this.getSystem(newSystem) !== undefined) { return; }
 
-      this.enableSystems(
-        ...system.requiredSystems as AnyConstructorFor<System>[]
-      );
+    // Instantiate and append the new system
+    const system = new newSystem(...args);
+    const systemName = newSystem.name;
 
-      if (this.systems.list.length == 0) {
-        // Edge case, first system
-        this.systems.list.push(system);
-        this.systems.map.set(systemName, system);
-        continue;
-      }
+    // Enable its required systems
+    this.enableSystems(
+      ...system.requiredSystems
+    );
 
-      // Binary search for priority
-      let startIdx = 0;
-      let endIdx = this.systems.list.length - 1;
-      let middleIdx = 0;
-      const searchPriority = system.priority;
-
-      while (Math.abs(startIdx - endIdx) > 1) {
-        middleIdx = Math.floor((startIdx + endIdx) / 2);
-        const middlePriority = this.systems.list[middleIdx].priority;
-
-        if (middlePriority > searchPriority) {
-          endIdx = middleIdx;
-        } else if (middlePriority < searchPriority) {
-          startIdx = middleIdx;
-        } else {
-          break;
-        }
-      }
-
-      // Insert the item
-      this.systems.list.splice(middleIdx, 0, system);
+    if (this.systems.list.length == 0) {
+      // Edge case, first system
+      this.systems.list.push(system);
       this.systems.map.set(systemName, system);
+      return;
     }
+
+    // Binary search for priority
+    let startIdx = 0;
+    let endIdx = this.systems.list.length - 1;
+    let middleIdx = 0;
+    const searchPriority = system.priority;
+
+    while (Math.abs(startIdx - endIdx) > 1) {
+      middleIdx = Math.floor((startIdx + endIdx) / 2);
+      const middlePriority = this.systems.list[middleIdx].priority;
+
+      if (middlePriority > searchPriority) {
+        endIdx = middleIdx;
+      } else if (middlePriority < searchPriority) {
+        startIdx = middleIdx;
+      } else {
+        break;
+      }
+    }
+
+    // Insert the item
+    this.systems.list.splice(middleIdx, 0, system);
+    this.systems.map.set(systemName, system);
   }
 
   /**
@@ -139,14 +142,17 @@ export class Peek {
   private static barRightSize: number;
   private static barBottomSize: number;
 
+  private static finalDrawX = 0;
+  private static finalDrawY = 0;
+
   /** The amount of frames elapsed since the start of the engine */
-  public static frameCount: number = 0;
-  public static frameRate: number = 0;
+  public static frameCount = 0;
+  public static frameRate = 0;
 
   /** Sets the screen size in pixels */
   public static screenSize(width: number, height: number) {
-    (this as {screenWidth: number}).screenWidth = width;
-    (this as {screenHeight: number}).screenHeight = height;
+    this.screenWidth = width;
+    this.screenHeight = height;
     this.center.set(width / 2, height / 2);
   }
 
@@ -172,22 +178,22 @@ export class Peek {
         'width:100vw;height:100vh;margin:0;padding:0;';
       this.canvas.style.width = '100vw';
       this.canvas.style.height = '100vh';
-      this.canvas.style.imageRendering = 'pixelated';
       document.body.appendChild(this.canvas);
     }
+    this.canvas.style.imageRendering = 'pixelated';
     window.addEventListener('resize', () => this.screenDidResize = true);
     this.doScreenResize();
 
     // Setup the context
-    this.ctx = this.canvas.getContext('2d')!;
+    this.ctx = this.canvas.getContext('2d', { alpha: false })!;
+    (this.ctx as unknown as { webkitImageSmoothingEnabled: boolean })
+      .webkitImageSmoothingEnabled = false;
+    (this.ctx as unknown as { mozImageSmoothingEnabled   : boolean })
+      .mozImageSmoothingEnabled = false;
+    (this.ctx as unknown as { imageSmoothingEnabled      : boolean })
+      .imageSmoothingEnabled = false;
 
-    if (options.debug) {
-      // Debug mode!
-      Debugger.init();
-
-      // Don't do the startup scene
-      this.loadScene(game);
-    } else if (options.startupScene) {
+    if (options.startupScene) {
       // Not in debug mode, so load the startup scene
       this.loadScene(new options.startupScene(game));
     } else {
@@ -196,15 +202,23 @@ export class Peek {
     }
 
     // Start the frame loop
-    const targetDelta = 1000 / 60;
     let lastFrameTime = performance.now();
-    setInterval(() => {
+    let smoothDelta = 1;
+    const frameCallback = () => {
+      // Calculate framerate and delta
       const nowTime = performance.now();
       const delta = (nowTime - lastFrameTime) / 16.66;
       this.frameRate = this.frameRate * 0.9 + (60 / delta) * 0.1;
-      this.frame(delta > 5 ? 5 : delta);
+      smoothDelta = smoothDelta * 0.9 + delta * 0.1;
       lastFrameTime = nowTime;
-    }, targetDelta);
+
+      // Call the frame function
+      this.frame(smoothDelta > 5 ? 5 : smoothDelta);
+
+      // Start the next frame
+      window.requestAnimationFrame(frameCallback);
+    };
+    window.requestAnimationFrame(frameCallback);
   }
 
   /** Runs every time the window is resized, and once when Peek initializes */
@@ -261,7 +275,11 @@ export class Peek {
   }
 
   /** Runs every frame */
-  private static frame(delta: number) {
+  private static frame(
+    delta: number,
+    shouldProcessNodes: boolean = true,
+    processSystemPriorityLessThan: number = Infinity
+  ) {
     const scene = this.scenes[this.loadedSceneID];
 
     if (this.screenDidResize) {
@@ -274,33 +292,44 @@ export class Peek {
       
       // PROCESS
 
-      // Process the scene...
-      (scene as unknown as {processCaller: (delta: number) => void})
-        .processCaller(delta);
-
       // Call the systems (already ordered by priority)
       for (const system of this.systems.list) {
+        if (system.priority >= processSystemPriorityLessThan) {
+          break;
+        }
         system.process(delta);
       }
+
+      if (shouldProcessNodes) {
+        // Process the scene...
+        scene.processCaller(delta);
+      }
+
 
       // DRAW
 
       // Clear the screen
-      this.ctx.clearRect(
-        0, 0,
-        this.canvas.width, this.canvas.height
-      );
+      this.ctx.fillStyle = '#fff';
+      this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
       // Transform into place (for black bars)
-      const transform = this.ctx.getTransform();
       this.ctx.translate(this.frameXOffset, this.frameYOffset);
 
+      // Translate (camera)
+      const camera = scene.getCamera();
+      if (camera) {
+        camera.doTransform();
+      }
+
+      const transform = this.ctx.getTransform();
+      this.finalDrawX = transform.e;
+      this.finalDrawY = transform.f;
+
       // Draw the scene
-      (scene as unknown as {drawCaller: () => void})
-        .drawCaller();
+      scene.drawCaller();
       
       // Reset the transform
-      this.ctx.setTransform(transform);
+      this.ctx.resetTransform();
 
       // Draw black bars
       this.ctx.fillStyle = '#000';
@@ -333,8 +362,6 @@ export class Peek {
 
   /** Loads a scene and switches to it */
   public static loadScene(scene: Scene) {
-    console.log('Loaded', scene);
-
     // Pre-load the scene, but don't wait for it!
     this.preLoadScene(scene);
 
@@ -355,12 +382,12 @@ export class Peek {
     this.scenes[scene.sceneID] = 0;
 
     // Wait for the scene's preload function
-    await (scene as unknown as {preload: () => Promise<void>}).preload();
+    await scene.preloadCaller();
 
     // TODO: Make sure the scene's assets are loaded (somehow)
 
     // Call the scene's ready function!
-    (scene as unknown as {ready: () => void}).ready();
+    scene.readyCaller();
 
     // Finally, add the scene
     this.scenes[scene.sceneID] = scene;
@@ -385,7 +412,9 @@ export class Peek {
     Peek.ctx.stroke();
   }
 
+
+
 }
 
 // Expose the engine!
-(window as unknown as { Peek: Peek }).Peek = Peek;
+window.Peek = Peek;

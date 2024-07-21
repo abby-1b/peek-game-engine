@@ -1,6 +1,5 @@
 import { Peek } from '../peek';
 import { Texture } from '../resources/Texture';
-import { BLEND_MODE_MAPPINGS, BlendMode } from '../util/BlendMode';
 import { HitBox } from '../util/HitBox';
 import { PNode } from './PNode';
 
@@ -37,7 +36,7 @@ export class Sprite extends PNode {
     if (!this.texture) return;
 
     // Set the blend mode
-    Peek.ctx.globalCompositeOperation = BLEND_MODE_MAPPINGS[this.blendMode];
+    Peek.ctx.globalCompositeOperation = this.blendMode;
 
     // Draw the texture
     this.texture.draw(

@@ -38,24 +38,43 @@ export class PNode {
 
   /** Gets this node's hitbox. */
   public getHitbox(
+    integer: boolean,
     xOffset: number = 0,
     yOffset: number = 0,
     overrideW: number = 0,
     overrideH: number = 0
   ): HitBox {
-    const ret = {
-      x: this.pos.x + xOffset, y: this.pos.y + yOffset,
-      w: overrideW, h: overrideH
-    };
+    if (integer) {
+      const ret = {
+        x: Math.floor(this.pos.x + xOffset), 
+        y: Math.floor(this.pos.y + yOffset),
+        w: overrideW, h: overrideH
+      };
 
-    let parent = this.parent;
-    while (parent != undefined) {
-      ret.x += parent.pos.x;
-      ret.y += parent.pos.y;
-      parent = parent.parent;
+      let parent = this.parent;
+      while (parent != undefined) {
+        ret.x += Math.floor(parent.pos.x);
+        ret.y += Math.floor(parent.pos.y);
+        parent = parent.parent;
+      }
+
+      return ret;
+    } else {
+      const ret = {
+        x: this.pos.x + xOffset, y: this.pos.y + yOffset,
+        w: overrideW, h: overrideH
+      };
+      
+      let parent = this.parent;
+      while (parent != undefined) {
+        ret.x += parent.pos.x;
+        ret.y += parent.pos.y;
+        parent = parent.parent;
+      }
+
+      return ret;
     }
 
-    return ret;
   }
 
   // CHILD METHODS
@@ -147,28 +166,45 @@ export class PNode {
   // PROCESSING METHODS
 
   /**
-   * Calls this `.preload()`, then it's children's. Used internally by the
-   * engine to make overriding easier!
+   * Calls `.preload()` after its children's. Used internally
+   * by the engine to make overriding easier!
    */
-  private async preloadCaller() {
+  public async preloadCaller() {
     // Preload children first (recursively)
     for (const child of this.children) {
-      child.preloadCaller();
+      await child.preloadCaller();
     }
 
     // Call *this* preload function after the children are loaded
-    this.preload();
+    await this.preload();
+  }
+
+  /**
+   * Called at some point before the node is displayed. You should load assets,
+   * add nodes, and do everything involved with *loading* in this method.
+   * 
+   * Mostly used for async things, or anything that could take a long time.
+   */
+  protected async preload() {}
+
+  /**
+   * Calls `.ready()` after its children's. Used internally
+   * by the engine to make overriding easier! 
+   */
+  public readyCaller() {
+    // Preload children first (recursively)
+    for (const child of this.children) {
+      child.readyCaller();
+    }
+
+    // Call *this* preload function after the children are loaded
+    this.ready();
   }
 
   /**
    * Called at some point before the node is displayed.
    * It is guaranteed that this function will be called exactly once before
    * either `.process()` or `.draw()` are called.
-   */
-  protected async preload() {}
-
-  /**
-   * Called when the node and it's children are fully loaded. Only called once!
    */
   protected ready() {}
 
@@ -177,7 +213,7 @@ export class PNode {
    * engine to make overriding easier! If you want to override the process
    * method, try overriding `.process()`.
    */
-  private processCaller(delta: number) {
+  public processCaller(delta: number) {
     // TODO: if (this.isPaused)
 
     // Call the process function (recursively)
@@ -198,7 +234,7 @@ export class PNode {
    * engine to make overriding easier! If you want to override the draw method,
    * try overriding `.draw()`.
    */
-  private drawCaller() {
+  public drawCaller() {
     // Don't draw if hidden!
     if (this.isHidden) return;
 
@@ -211,20 +247,6 @@ export class PNode {
     for (const child of this.children) {
       child.drawCaller();
     }
-
-    /*
-    // Draw the hitbox!
-    const hb = this.getHitbox();
-    Peek.ctx.strokeStyle = `rgb(${nesting * 64}, 50, 50)`;
-    Peek.ctx.beginPath();
-    Peek.ctx.rect(
-      hb.x + 0.5,
-      hb.y + 0.5,
-      hb.w == 0 ? 0.01 : hb.w - 1,
-      hb.h == 0 ? 0.01 : hb.h - 1
-    );
-    Peek.ctx.stroke();
-    */
     
     // Un-transform
     Peek.ctx.setTransform(transform);

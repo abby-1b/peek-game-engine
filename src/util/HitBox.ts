@@ -1,5 +1,5 @@
 
-/** A hitbox, defined with x, y, w, and h components. */
+/** A hitbox, defined with x, y, width, and height components. */
 export interface HitBox {
   x: number,
   y: number,
