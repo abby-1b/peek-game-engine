@@ -2,11 +2,10 @@ import { hitboxOverlaps } from '../util/HitBox';
 import { DynamicBody } from '../nodes/physics/DynamicBody';
 import { StaticBody } from '../nodes/physics/StaticBody';
 import { System } from './System';
+import { Signal } from '../util/Signal';
 
 /** Processes physics! */
 export class Physics extends System {
-  public priority = -1;
-
   public objects: Set<StaticBody> = new Set();
 
   /**
@@ -40,6 +39,9 @@ export class Physics extends System {
 
         // A is always dynamic
         // B is either dynamic or static
+
+        Signal.send(objA, 'onCollide', objB);
+        Signal.send(objB, 'onCollide', objA);
 
         const aSpeedRatio =
           objA.velocity.length() / (
