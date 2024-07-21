@@ -10,7 +10,7 @@ import { Texture } from './Texture';
 /**  */
 class WiggleSprite extends Sprite {
   /**  */
-  protected process(): void {
+  protected override process(): void {
     this.pos.lerp(
       Peek.screenWidth / 2 + (Math.random() * 10) - 5,
       Peek.screenWidth / 2 + (Math.random() * 10) - 7,
@@ -30,13 +30,13 @@ export class StartupScene extends Scene {
   }
 
   /** Sets up the background, particles, and image. */
-  protected ready(): void {
+  protected override async preload(): Promise<void> {
 
     // Add the background and logo
     this.add(
       new FillRect().setColor(Color.WHITE),
       new Sprite()
-        .setTexture(Texture.load('../../assets/logo-dark.png'))
+        .setTexture(await Texture.preload('../../assets/logo-dark.png'))
         .run(s => s.pos.set(Peek.screenWidth / 2, Peek.screenHeight / 2))
         .hide()
     );
@@ -66,7 +66,7 @@ export class StartupScene extends Scene {
   }
 
   /** Animates the startup sequence */
-  protected process(): void {
+  protected override process(): void {
     
     if (Peek.frameCount == 100) {
       // Change background

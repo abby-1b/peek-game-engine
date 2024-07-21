@@ -247,6 +247,11 @@ export class Vec2 {
     return Math.hypot(this.x, this.y);
   }
 
+  /** Gets the angle of the vector */
+  public angle() {
+    return Math.atan2(this.x, this.y);
+  }
+
   /**
    * Normalizes this vector to be of length 1
    * If the vector is (0, 0), it remains at (0, 0)

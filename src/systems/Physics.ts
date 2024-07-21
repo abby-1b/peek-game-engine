@@ -33,8 +33,8 @@ export class Physics extends System {
         if (objA.bodyId == objB.bodyId) { continue; }
         if (!(objA instanceof DynamicBody)) { continue; }
 
-        const hba = objA.getHitbox();
-        const hbb = objB.getHitbox();
+        const hba = objA.getHitbox(false);
+        const hbb = objB.getHitbox(false);
         if (!hitboxOverlaps(hba, hbb)) { continue; }
 
         // A is always dynamic

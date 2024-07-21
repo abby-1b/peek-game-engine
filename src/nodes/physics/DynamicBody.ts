@@ -21,7 +21,7 @@ export class DynamicBody extends StaticBody {
    * Deals with the dynamic body's physics. When overriding the process method,
    * make sure to call `super.process()` if you want physics to work!
    */
-  protected process(delta: number): void {
+  protected override process(delta: number): void {
     this.pos.addVec(this.velocity.mulScalarRet(delta));
     this.pos.addVec(this.acceleration.mulScalarRet(0.5 * delta ** 2));
 

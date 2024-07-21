@@ -1,6 +1,7 @@
 {
 	"compilerOptions": {
-		"target": "ES2021",
+		"target": "ESNext",
+		"module": "ESNext",
 		"lib": [ "DOM", "ESNext.WeakRef", "ESNext" ],
 		"strict": true,
 		"allowImportingTsExtensions": true,

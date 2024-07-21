@@ -29,19 +29,20 @@ export class StaticBody extends PNode {
   }
 
   /** Gets this node's hitbox */
-  public getHitbox(): HitBox {
+  public override getHitbox(integer: boolean): HitBox {
     const tw = this.size.x;
     const th = this.size.y;
     return super.getHitbox(
-      -tw / 2,
-      -th / 2,
+      integer,
+      Math.floor(-tw / 2),
+      Math.floor(-th / 2),
       tw,
       th,
     );
   }
 
   /** Ensures the physics system has proper access to physics objects */
-  protected moved(): void {
+  protected override moved(): void {
     const physicsSystem = Peek.getSystem(Physics);
     if (this.parent == undefined) {
       physicsSystem?.removeObject(this);

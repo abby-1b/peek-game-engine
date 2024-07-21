@@ -2,33 +2,16 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { Peek } from '../../src/peek';
-import { PNode } from '../../src/nodes/PNode';
 import { Color } from '../../src/resources/Color';
 import { Texture } from '../../src/resources/Texture';
-import { Gen } from '../../src/resources/Gen';
 import { FillRect } from '../../src/nodes/control/FillRect';
-import { Character } from '../../src/nodes/Character';
 import { Sprite } from '../../src/nodes/Sprite';
-import { BlendMode } from '../../src/util/BlendMode';
-import { randomRange } from '../../src/util/math';
 import { Scene } from '../../src/nodes/Scene';
-import { Control, Controller } from '../../src/control/Control';
-import { Vec2 } from '../../src/resources/Vec';
+import { Control } from '../../src/control/Control';
 import { DynamicBody } from '../../src/nodes/physics/DynamicBody';
-import { Particles } from '../../src/nodes/Particles';
 import { StaticBody } from '../../src/nodes/physics/StaticBody';
 import { Physics } from '../../src/systems/Physics';
 import { Gravity } from '../../src/systems/Gravity';
-
-// Nodes
-// Declare const Box: any;
-// Declare const Particles: any;
-
-// Resources
-declare const Rect: any;
-
-// Peek.screenSize(512, 512);
-// Peek.screenSize(1024, 1024);
 
 /**  */
 class TestGame extends Scene {

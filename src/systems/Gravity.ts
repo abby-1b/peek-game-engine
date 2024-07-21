@@ -9,7 +9,7 @@ import { System } from './System';
  * This applies to all DynamicBody nodes.
  */
 export class Gravity extends System {
-  public requiredSystems = [ Physics ];
+  public override requiredSystems = [ Physics ];
 
   public gravity: Vec2 = new Vec2(0, 0.8);
 

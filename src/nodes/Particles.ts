@@ -24,7 +24,7 @@ export class Particles extends PNode {
   public color: Color = Color.WHITE;
 
   /** Animates the particles */
-  protected process(delta: number): void {
+  protected override process(delta: number): void {
     // Particle physics
     for (const p of this.particles) {
       p.x += p.xVel * delta;
@@ -89,7 +89,7 @@ export class Particles extends PNode {
   }
 
   /** Draws the particles */
-  protected draw() {
+  protected override draw() {
     Peek.ctx.fillStyle = this.color.fillStyle();
     for (const p of this.particles) {
       const lifetime = p.currLifetime / p.maxLifetime;
