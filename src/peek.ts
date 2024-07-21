@@ -412,8 +412,6 @@ export class Peek {
     Peek.ctx.stroke();
   }
 
-
-
 }
 
 // Expose the engine!

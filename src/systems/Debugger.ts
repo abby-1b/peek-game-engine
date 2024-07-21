@@ -5,8 +5,10 @@ import { Input } from '../control/inputs/Input';
 import { DynamicBody } from '../nodes/physics/DynamicBody';
 import { PNode } from '../nodes/PNode';
 import { Peek } from '../peek';
+import { Font } from '../resources/Font';
 import { Texture } from '../resources/Texture';
 import { Vec2 } from '../resources/Vec';
+import { Path } from '../util/Path';
 import { System } from './System';
 
 type HookReturn =
@@ -22,6 +24,14 @@ export class Debugger extends System {
   public static isPaused = false;
   public static remainingRunFrames = 0;
   public static showHitboxes = true;
+
+  public static font = new Font(
+    Path.relativeToModule(
+      import.meta.url,
+      '../resources/font-medium.png'
+    ),
+    6, 8, false
+  );
 
   /** Initializes the debugger. */
   public constructor(debugKey: string = '\\') {
@@ -73,6 +83,19 @@ export class Debugger extends System {
     });
     Debugger.runBefore(Input, 'onDestroy', function() {
       Debugger.debugLog('Please override `onDestroy` for this input.');
+    });
+
+    // Hook into `Font`
+    Debugger.runBefore(Font, 'fontLoaded', function(success) {
+      if (!success) {
+        Debugger.debugLog('Font not loaded!');
+      }
+    });
+    Debugger.runBefore(Font, 'draw', function() {
+      if (!(this as any).fontImage) {
+        Debugger.debugLog('Font couldn\'t load!');
+        return { override: true, value: undefined };
+      }
     });
 
     // `Peek` hooks
@@ -162,7 +185,11 @@ export class Debugger extends System {
       this.ctx.setTransform(transform);
 
       // Draw the extra information
-      // Peek.drawText();
+      Debugger.font.draw(
+        'Hello, world\nProgrammed to work and not to feel\n' +
+        'Not even sure that this is real\nHello, world',
+        1, 1
+      );
     }, true);
   }
 
