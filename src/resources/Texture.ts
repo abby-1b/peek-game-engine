@@ -24,10 +24,10 @@ const enum AtlasTouch {
 /** A texture atlas holds sets of textures. */
 class TextureAtlas {
   /** The atlas itself! */
-  public static atlasCanvas = new OffscreenCanvas(
-    ATLAS_STARTUP_SIZE, ATLAS_STARTUP_SIZE
-  );
-  private static atlas: OffscreenCanvasRenderingContext2D;
+  public static atlasCanvas: OffscreenCanvas | HTMLCanvasElement;
+  private static atlas:
+    OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D;
+  private static singlePixelImageData: ImageData;
 
   /**
    * A list of free rectangles within the atlas. This list should be kept tidy
@@ -56,7 +56,18 @@ class TextureAtlas {
 
   /** Static init! */
   static {
+    this.atlasCanvas = new OffscreenCanvas(
+      ATLAS_STARTUP_SIZE, ATLAS_STARTUP_SIZE
+    );
     this.atlas = this.atlasCanvas.getContext('2d')!;
+    (this.atlas as unknown as { webkitImageSmoothingEnabled: boolean })
+      .webkitImageSmoothingEnabled = false;
+    (this.atlas as unknown as { mozImageSmoothingEnabled   : boolean })
+      .mozImageSmoothingEnabled = false;
+    (this.atlas as unknown as { imageSmoothingEnabled      : boolean })
+      .imageSmoothingEnabled = false;
+    this.atlas.imageSmoothingQuality = 'low';
+    this.singlePixelImageData = this.atlas.createImageData(1, 1);
   }
 
   /** Gets a rectangle within the atlas that equals the requested space. */
@@ -443,11 +454,67 @@ class TextureAtlas {
     this.atlas.drawImage(image, x, y);
   }
 
+  /** Draws an image (rotated around its center) inside a given texture */
+  public static drawRotated(
+    sourceX: number, sourceY: number,
+    sourceW: number, sourceH: number,
+    destinationX: number, destinationY: number,
+    destinationW: number, destinationH: number,
+    angle: number
+  ) {
+    (this.atlas as unknown as { webkitImageSmoothingEnabled: boolean })
+      .webkitImageSmoothingEnabled = false;
+    (this.atlas as unknown as { mozImageSmoothingEnabled   : boolean })
+      .mozImageSmoothingEnabled = false;
+    (this.atlas as unknown as { imageSmoothingEnabled      : boolean })
+      .imageSmoothingEnabled = false;
+    
+    this.atlas.save();
+    this.atlas.translate(
+      Math.round(destinationX + destinationW / 2),
+      Math.round(destinationY + destinationH / 2)
+    );
+
+    const boundA = 0.1;
+    const boundS = boundA * 2;
+
+    this.atlas.beginPath();
+    this.atlas.rect(
+      -destinationW / 2 + boundA,
+      -destinationH / 2 + boundA,
+      destinationW - boundS, destinationH - boundS
+    );
+    this.atlas.clip();
+
+    this.atlas.rotate(-angle);
+    this.atlas.drawImage(
+      this.atlasCanvas,
+      sourceX + boundA, sourceY + boundA, sourceW - boundS, sourceH - boundS,
+      Math.round(-sourceW / 2), Math.round(-sourceH / 2), sourceW, sourceH,
+    );
+    this.atlas.restore();
+  }
+
   /** Sets a single pixel within the atlas. This is a full replace! */
   public static setPixel(x: number, y: number, color: Color) {
     this.atlas.clearRect(x, y, 1, 1);
     this.atlas.fillStyle = color.fillStyle();
     this.atlas.fillRect(x, y, 1, 1);
+  }
+  /** Sets a single pixel within the atlas. This is a full replace! */
+  public static setPixelRaw(x: number, y: number, color: Uint8ClampedArray) {
+    this.singlePixelImageData.data.set(color);
+    this.atlas.putImageData(this.singlePixelImageData, x, y);
+  }
+
+  /** Gets a single pixel from within the atlas. */
+  public static getPixel(x: number, y: number): Color {
+    const data = this.atlas.getImageData(x, y, 1, 1).data;
+    return new Color(data[0], data[1], data[2], data[3]);
+  }
+  /** Gets a single pixel from within the atlas. */
+  public static getPixelRaw(x: number, y: number): Uint8ClampedArray {
+    return this.atlas.getImageData(x, y, 1, 1).data;
   }
 
   /** Multiplies the alpha of a single pixel. Takes alpha as 0-255 */
@@ -506,8 +573,9 @@ export class Texture {
 
   /**
    * Makes a new texture object, which points to the texture atlas.
-   * If you want an empty texture that will be allocated later,
-   * pass -1 as the width and height.
+   * 
+   * If you want an empty texture that will be allocated later, pass -1 as
+   * the width and height. Empty textures don't take up space on the atlas.
    */
   public constructor(width: number, height: number) {
     if (width == -1) {
@@ -532,9 +600,10 @@ export class Texture {
   }
 
   /** Loads a texture from the file manager, given a path */
-  public static load(
+  private static load(
     path: string,
-    callback?: (success: boolean) => void): Texture {
+    callback?: (success: boolean) => void
+  ): Texture {
     // Make the texture
     const tex = new Texture(-1, -1);
 
@@ -542,11 +611,11 @@ export class Texture {
     const img = new Image();
     img.onload = () => {
       // Set the texture's dimensions (readonly override)
-      (tex as { width: number }).width = img.width;
-      (tex as { height: number }).height = img.width;
+      (tex as { width : number }).width  = img.width;
+      (tex as { height: number }).height = img.height;
 
       // Set the texture's atlas position
-      const atlasRect = TextureAtlas.requestSize(img.width, img.width);
+      const atlasRect = TextureAtlas.requestSize(img.width, img.height);
       tex.atlasX = atlasRect.x;
       tex.atlasY = atlasRect.y;
 
@@ -575,9 +644,115 @@ export class Texture {
     });
   }
 
+  /**
+   * Rotates a texture. Returns a copy of the
+   * texture rotated to the specified angle.
+   * @param texture The texture to rotate
+   * @param angle The rotation angle (in radians)
+   * @param keepSize Whether or not the size should be preserved
+   */
+  public static rotated(
+    texture: Texture,
+    angle: number,
+    keepSize = false
+  ): Texture {
+    // The three points (excluding 0, 0)
+    const points: [
+      [ number, number ], [ number, number ], [ number, number ]
+    ] = [
+      [ texture.width, 0 ],
+      [ texture.width, texture.height ],
+      [ 0, texture.height ],
+    ];
+
+    // Rotate the points
+    const cos = Math.cos(angle);
+    const sin = Math.sin(angle);
+    const negCos = cos; // Cosine of the negative angle
+    const negSin = -sin; // Sine of the negative angle
+    for (const point of points) {
+      const x = point[0];
+      const y = point[1];
+      point[0] = cos * x + sin * y;
+      point[1] = cos * y - sin * x;
+    }
+
+    // Calculate final width, height, source X and Y
+    const minX = Math.min(0, points[0][0], points[1][0], points[2][0]);
+    const minY = Math.min(0, points[0][1], points[1][1], points[2][1]);
+    const finalSourceX = Math.round(-minX);
+    const finalSourceY = Math.round(-minY);
+    const sourceW = texture.width;
+    const sourceH = texture.width;
+    const [ finalWidth, finalHeight ] = keepSize
+      ? [ sourceW, sourceH ]
+      : [
+        Math.ceil(Math.max(0, points[0][0], points[1][0], points[2][0]) - minX),
+        Math.ceil(Math.max(0, points[0][1], points[1][1], points[2][1]) - minY)
+      ];
+    
+    // TODO: modify finalSource to keep centered when keepSize is true
+
+    // Create the new texture
+    const out = new Texture(finalWidth, finalHeight);
+    // Console.log(out.width, out.height);
+    // Console.log(finalSourceX, finalSourceY);
+
+    TextureAtlas.drawRotated(
+      texture.atlasX, texture.atlasY, texture.width, texture.height,
+      out.atlasX, out.atlasY, out.width, out.height,
+      angle
+    );
+    return out;
+
+    // Iterate over each target pixel
+    for (let x = 0; x < finalWidth; x++) {
+      for (let y = 0; y < finalHeight; y++) {
+        // Get the corresponding target pixel
+
+        // Transform finalSource to 0, 0
+        let sx = x - finalSourceX;
+        let sy = y - finalSourceY;
+
+        // Rotate backwards around that
+        [sx, sy] = [
+          Math.round(negCos * sx + negSin * sy),
+          Math.round(negCos * sy - negSin * sx)
+        ];
+
+        // Check if the pixel is within bounds
+        if (sx < 0 || sx >= sourceW || sy < 0 || sy >= sourceH) {
+          continue;
+        }
+
+        // Put the source pixel in the destination texture
+        out.setPixel(
+          x, y,
+          texture.getPixel(sx, sy)
+        );
+      }
+    }
+
+    // Console.log(points.join(','));
+    return out;
+  }
+
   /** Sets a pixel within the texture */
   public setPixel(x: number, y: number, color: Color) {
     TextureAtlas.setPixel(x + this.atlasX, y + this.atlasY, color);
+  }
+  /** Sets a pixel within the texture */
+  public setPixelRaw(x: number, y: number, color: Uint8ClampedArray) {
+    TextureAtlas.setPixelRaw(x + this.atlasX, y + this.atlasY, color);
+  }
+
+  /** Gets a pixel within the texture, returning its color */
+  public getPixel(x: number, y: number): Color {
+    return TextureAtlas.getPixel(x + this.atlasX, y + this.atlasY);
+  }
+  /** Gets a pixel within the texture, returning its color */
+  public getPixelRaw(x: number, y: number): Uint8ClampedArray {
+    return TextureAtlas.getPixelRaw(x + this.atlasX, y + this.atlasY);
   }
 
   /** Multiplies the alpha of a single pixel. Takes alpha as 0-255 */
@@ -613,12 +788,12 @@ export class Texture {
   }
 
   /** Draws this texture to a specific position */
-  public draw(x: number, y: number) {
+  public draw(x: number, y: number, width?: number, height?: number) {
     if (this.width == -1) return;
     Peek.ctx.drawImage(
       TextureAtlas.atlasCanvas,
       this.atlasX, this.atlasY, this.width, this.height,
-      x, y, this.width, this.height
+      x, y, width ?? this.width, height ?? this.height,
     );
   }
 }
