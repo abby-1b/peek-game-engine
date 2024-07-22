@@ -1,8 +1,6 @@
 import { Vec2 } from '../../resources/Vec';
 import { StaticBody } from './StaticBody';
 
-const FRICTION = 0.2;
-
 /** A physics body that moves! */
 export class DynamicBody extends StaticBody {
   public velocity: Vec2 = Vec2.zero();
@@ -12,6 +10,12 @@ export class DynamicBody extends StaticBody {
    * To apply motion, do `Body.acceleration.set(x, y)`.
    */
   public acceleration: Vec2 = Vec2.zero();
+
+  /** The base friction applied to all *NEW* DynamicBody nodes. */
+  public static baseFriction = 0.5;
+
+  /** The friction coefficient, initialized when the node is created. */
+  public friction = DynamicBody.baseFriction;
 
   // Used for calculating physics...
   public newPosChange: Vec2 = Vec2.zero();
@@ -27,7 +31,7 @@ export class DynamicBody extends StaticBody {
 
     // + acceleration.x * delta 
     this.velocity.addVec(this.acceleration.mulScalarRet(delta));
-    this.velocity.subVec(this.velocity.mulScalarRet(FRICTION * delta));
+    this.velocity.subVec(this.velocity.mulScalarRet(this.friction ** delta));
   }
 
   /** Sets this body's acceleration. Use this, never add to the speed! */
