@@ -47,6 +47,8 @@ export class Sprite extends PNode {
       this.scale * this.texture.width!,
       this.scale * this.texture.height!,
     );
+
+    Peek.ctx.globalCompositeOperation = BlendMode.NORMAL;
   }
 
   /** Gets this sprite's hitbox! This takes `.isCentered` into account, too. */
