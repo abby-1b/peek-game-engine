@@ -44,37 +44,28 @@ export class PNode {
     overrideW: number = 0,
     overrideH: number = 0
   ): HitBox {
+    // Get the starting position
+    const ret = {
+      x: this.pos.x + xOffset,
+      y: this.pos.y + yOffset,
+      w: overrideW, h: overrideH
+    };
+    
+    // Add parent transforms
+    let parent = this.parent;
+    while (parent != undefined) {
+      ret.x += parent.pos.x;
+      ret.y += parent.pos.y;
+      parent = parent.parent;
+    }
+    
+    // Round
     if (integer) {
-      const ret = {
-        x: Math.floor(this.pos.x + xOffset), 
-        y: Math.floor(this.pos.y + yOffset),
-        w: overrideW, h: overrideH
-      };
-
-      let parent = this.parent;
-      while (parent != undefined) {
-        ret.x += Math.floor(parent.pos.x);
-        ret.y += Math.floor(parent.pos.y);
-        parent = parent.parent;
-      }
-
-      return ret;
-    } else {
-      const ret = {
-        x: this.pos.x + xOffset, y: this.pos.y + yOffset,
-        w: overrideW, h: overrideH
-      };
-      
-      let parent = this.parent;
-      while (parent != undefined) {
-        ret.x += parent.pos.x;
-        ret.y += parent.pos.y;
-        parent = parent.parent;
-      }
-
-      return ret;
+      ret.x = Math.floor(ret.x);
+      ret.y = Math.floor(ret.y);
     }
 
+    return ret;
   }
 
   // CHILD METHODS
