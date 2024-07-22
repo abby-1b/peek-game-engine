@@ -1,4 +1,5 @@
 import { Peek } from '../peek';
+import { Drawable } from '../util/Drawable';
 import { Color } from './Color';
 
 const ATLAS_STARTUP_SIZE = 32;
@@ -22,7 +23,7 @@ const enum AtlasTouch {
 }
 
 /** A texture atlas holds sets of textures. */
-class TextureAtlas {
+class TextureAtlasMain {
   /** The atlas itself! */
   public static atlasCanvas: OffscreenCanvas | HTMLCanvasElement;
   private static atlas:
@@ -59,7 +60,9 @@ class TextureAtlas {
     this.atlasCanvas = new OffscreenCanvas(
       ATLAS_STARTUP_SIZE, ATLAS_STARTUP_SIZE
     );
-    this.atlas = this.atlasCanvas.getContext('2d')!;
+    this.atlas = this.atlasCanvas.getContext('2d', {
+      // willReadFrequently: true
+    })!;
     (this.atlas as unknown as { webkitImageSmoothingEnabled: boolean })
       .webkitImageSmoothingEnabled = false;
     (this.atlas as unknown as { mozImageSmoothingEnabled   : boolean })
@@ -449,6 +452,11 @@ class TextureAtlas {
 
   // PUBLIC METHODS
 
+  /** Sets the stroke and fill color of the atlas */
+  public static atlasColor(color: Color) {
+    this.atlas.strokeStyle = this.atlas.fillStyle = color.fillStyle();
+  }
+
   /** Puts an image into the atlas at a certain position */
   public static loadImage(x: number, y: number, image: HTMLImageElement) {
     this.atlas.drawImage(image, x, y);
@@ -497,14 +505,18 @@ class TextureAtlas {
 
   /** Sets a single pixel within the atlas. This is a full replace! */
   public static setPixel(x: number, y: number, color: Color) {
-    this.atlas.clearRect(x, y, 1, 1);
+    this.atlas.clearRect(~~x, ~~y, 1, 1);
     this.atlas.fillStyle = color.fillStyle();
-    this.atlas.fillRect(x, y, 1, 1);
+    this.atlas.fillRect(~~x, ~~y, 1, 1);
   }
   /** Sets a single pixel within the atlas. This is a full replace! */
   public static setPixelRaw(x: number, y: number, color: Uint8ClampedArray) {
     this.singlePixelImageData.data.set(color);
     this.atlas.putImageData(this.singlePixelImageData, x, y);
+  }
+  /** Puts a large chunk of image data in the atlas */
+  public static putRawImageData(x: number, y: number, imageData: ImageData) {
+    this.atlas.putImageData(imageData, x, y);
   }
 
   /** Gets a single pixel from within the atlas. */
@@ -515,6 +527,13 @@ class TextureAtlas {
   /** Gets a single pixel from within the atlas. */
   public static getPixelRaw(x: number, y: number): Uint8ClampedArray {
     return this.atlas.getImageData(x, y, 1, 1).data;
+  }
+  /** Gets a large chunk of image data from within the atlas */
+  public static getRawImageData(
+    x: number, y: number,
+    width: number, height: number
+  ): ImageData {
+    return this.atlas.getImageData(x, y, width, height);
   }
 
   /** Multiplies the alpha of a single pixel. Takes alpha as 0-255 */
@@ -531,6 +550,88 @@ class TextureAtlas {
     this.atlas.fillRect(x, y, 1, 1);
 
     this.atlas.restore();
+  }
+
+  /** Draws a clear rectangle in the specified position */
+  public static clearRect(x: number, y: number, w: number, h: number) {
+    this.atlas.clearRect(x, y, w, h);
+  }
+
+  /** Draws a filled rectangle given the top left point, width, and height. */
+  public static fillRect(x: number, y: number, width: number, height: number) {
+    this.atlas.fillRect(x, y, width, height);
+  }
+  
+  /** Draws a rectangle outline given the top left point, width, and height. */
+  public static rect(x: number, y: number, width: number, height: number) {
+    this.atlas.beginPath();
+    this.atlas.rect(
+      Math.floor(x) + 0.5,
+      Math.floor(y) + 0.5,
+      width - 1,
+      height - 1
+    );
+    this.atlas.stroke();
+  }
+
+  /**
+   * Draws a line using EFLA Variation D
+   * 
+   * Source: http://www.edepot.com/lined.html
+   * 
+   * @param x1 The line's start X
+   * @param y1 The line's start Y
+   * @param x2 The line's end X
+   * @param y2 The line's end Y
+   */
+  public static line(
+    x1: number, y1: number,
+    x2: number, y2: number
+  ) {
+    x1 = ~~x1;
+    x2 = ~~x2;
+    y1 = ~~y1;
+    y2 = ~~y2;
+
+    let shortLen = y2 - y1;
+    let longLen = x2 - x1;
+
+    let yLonger: boolean;
+    if (Math.abs(shortLen) > Math.abs(longLen)) {
+      const swap = shortLen;
+      shortLen = longLen;
+      longLen = swap;
+      yLonger = true;
+    } else {
+      yLonger = false;
+    }
+
+    const endVal = longLen;
+
+    let incrementVal: number;
+    if (longLen < 0) {
+      incrementVal = -1;
+      longLen = -longLen;
+    } else {
+      incrementVal = 1;
+    }
+
+    const decInc: number = longLen == 0
+      ? 0
+      : Math.floor((shortLen << 16) / longLen);
+
+    let j = 0;
+    if (yLonger) {
+      for (let i = 0; i !== endVal; i += incrementVal) {
+        this.atlas.fillRect(x1 + (j >> 16), y1 + i, 1, 1);
+        j += decInc;
+      }
+    } else {
+      for (let i = 0; i !== endVal; i += incrementVal) {
+        this.atlas.fillRect(x1 + i, y1 + (j >> 16), 1, 1);
+        j += decInc;
+      }
+    }
   }
 }
 
@@ -551,9 +652,10 @@ function ratioIsBetter(
 
   return Peek.frameCount % 60 < 2 ? (pa + pb < ca + cb) : (pa + pb > ca + cb);
 }
+const TextureAtlas: (typeof TextureAtlasMain) & Drawable = TextureAtlasMain;
 
 /** A texture is an index into the texture atlas. */
-export class Texture {
+export class Texture implements Drawable {
   private static freeListener = new FinalizationRegistry((pos: AtlasPos) => {
     // This runs when a texture is garbage collected!
     console.log(`Texture at (${pos[0]}, ${pos[1]}) was freed!`);
@@ -654,86 +756,65 @@ export class Texture {
   public static rotated(
     texture: Texture,
     angle: number,
-    keepSize = false
   ): Texture {
-    // The three points (excluding 0, 0)
-    const points: [
-      [ number, number ], [ number, number ], [ number, number ]
-    ] = [
-      [ texture.width, 0 ],
-      [ texture.width, texture.height ],
-      [ 0, texture.height ],
-    ];
+    const c = Math.cos(angle);
+    const s = Math.sin(angle);
 
-    // Rotate the points
-    const cos = Math.cos(angle);
-    const sin = Math.sin(angle);
-    const negCos = cos; // Cosine of the negative angle
-    const negSin = -sin; // Sine of the negative angle
-    for (const point of points) {
-      const x = point[0];
-      const y = point[1];
-      point[0] = cos * x + sin * y;
-      point[1] = cos * y - sin * x;
-    }
-
-    // Calculate final width, height, source X and Y
-    const minX = Math.min(0, points[0][0], points[1][0], points[2][0]);
-    const minY = Math.min(0, points[0][1], points[1][1], points[2][1]);
-    const finalSourceX = Math.round(-minX);
-    const finalSourceY = Math.round(-minY);
     const sourceW = texture.width;
-    const sourceH = texture.width;
-    const [ finalWidth, finalHeight ] = keepSize
-      ? [ sourceW, sourceH ]
-      : [
-        Math.ceil(Math.max(0, points[0][0], points[1][0], points[2][0]) - minX),
-        Math.ceil(Math.max(0, points[0][1], points[1][1], points[2][1]) - minY)
-      ];
-    
-    // TODO: modify finalSource to keep centered when keepSize is true
+    const sourceH = texture.height;
+
+    const finalW = Math.round(Math.abs(sourceH * s) + Math.abs(sourceW * c));
+    const finalH = Math.round(Math.abs(sourceH * c) + Math.abs(sourceW * s));
 
     // Create the new texture
-    const out = new Texture(finalWidth, finalHeight);
-    // Console.log(out.width, out.height);
-    // Console.log(finalSourceX, finalSourceY);
+    const out = new Texture(finalW, finalH);
 
-    TextureAtlas.drawRotated(
-      texture.atlasX, texture.atlasY, texture.width, texture.height,
-      out.atlasX, out.atlasY, out.width, out.height,
-      angle
-    );
-    return out;
+    const sourceData = TextureAtlas.getRawImageData(
+      texture.atlasX, texture.atlasY,
+      sourceW, sourceH
+    ).data;
+    const outImageData = new ImageData(finalW, finalH);
+    const outPixels = outImageData.data;
+
+    // Calculate center points
+    const centerX = (sourceW - 0.5) / 2;
+    const centerY = (sourceH - 0.5) / 2;
+    const finalCenterX = (finalW - 1) / 2;
+    const finalCenterY = (finalH - 1) / 2;
 
     // Iterate over each target pixel
-    for (let x = 0; x < finalWidth; x++) {
-      for (let y = 0; y < finalHeight; y++) {
+    for (let x = 0; x < finalW; x++) {
+      for (let y = 0; y < finalH; y++) {
         // Get the corresponding target pixel
 
-        // Transform finalSource to 0, 0
-        let sx = x - finalSourceX;
-        let sy = y - finalSourceY;
+        // Translate to origin
+        const dx = x - finalCenterX;
+        const dy = y - finalCenterY;
 
-        // Rotate backwards around that
-        [sx, sy] = [
-          Math.round(negCos * sx + negSin * sy),
-          Math.round(negCos * sy - negSin * sx)
-        ];
+        // Rotate around center
+        const rotatedX = c * dx - s * dy;
+        const rotatedY = c * dy + s * dx;
 
-        // Check if the pixel is within bounds
-        if (sx < 0 || sx >= sourceW || sy < 0 || sy >= sourceH) {
-          continue;
+        // Translate back and round to nearest pixel
+        const sourceX = ~~(rotatedX + centerX);
+        const sourceY = ~~(rotatedY + centerY);
+
+        // Check if the source pixel is within bounds
+        if (
+          sourceX >= 0 && sourceX < sourceW &&
+          sourceY >= 0 && sourceY < sourceH
+        ) {
+          // Put the source pixel in the destination texture
+          const sourceIdx = (sourceX + sourceY * sourceW) * 4;
+          outPixels[(x + y * finalW) * 4    ] = sourceData[sourceIdx    ];
+          outPixels[(x + y * finalW) * 4 + 1] = sourceData[sourceIdx + 1];
+          outPixels[(x + y * finalW) * 4 + 2] = sourceData[sourceIdx + 2];
+          outPixels[(x + y * finalW) * 4 + 3] = sourceData[sourceIdx + 3];
         }
-
-        // Put the source pixel in the destination texture
-        out.setPixel(
-          x, y,
-          texture.getPixel(sx, sy)
-        );
       }
     }
 
-    // Console.log(points.join(','));
+    TextureAtlas.putRawImageData(out.atlasX, out.atlasY, outImageData);
     return out;
   }
 
@@ -758,6 +839,85 @@ export class Texture {
   /** Multiplies the alpha of a single pixel. Takes alpha as 0-255 */
   public fadePixel(x: number, y: number, alpha: number) {
     TextureAtlas.fadePixel(x + this.atlasX, y + this.atlasY, alpha);
+  }
+
+  /** Clears a portion of this texture */
+  public clearRect(x: number, y: number, w: number, h: number) {
+    // TODO: debugger hook (no need for clipping!)
+    TextureAtlas.clearRect(
+      x + this.atlasX, y + this.atlasY,
+      w, h
+    );
+  }
+
+  /** Draws a filled rectangle given the top left point, width, and height. */
+  public fillRect(x: number, y: number, width: number, height: number) {
+    TextureAtlas.fillRect(x + this.atlasX, y + this.atlasY, width, height);
+  }
+  
+  /** Draws a rectangle outline given the top left point, width, and height. */
+  public rect(x: number, y: number, width: number, height: number) {
+    TextureAtlas.rect(
+      x + this.atlasX, y + this.atlasY,
+      width, height
+    );
+  }
+
+  /**
+   * Draws a line using EFLA Variation D
+   * 
+   * Source: http://www.edepot.com/lined.html
+   * 
+   * @param x1 The line's start X
+   * @param y1 The line's start Y
+   * @param x2 The line's end X
+   * @param y2 The line's end Y
+   */
+  public line(x1: number, y1: number, x2: number, y2: number) {
+    x1 = ~~x1 + this.atlasX;
+    x2 = ~~x2 + this.atlasX;
+    y1 = ~~y1 + this.atlasY;
+    y2 = ~~y2 + this.atlasY;
+
+    let shortLen = y2 - y1;
+    let longLen = x2 - x1;
+
+    let yLonger: boolean;
+    if (Math.abs(shortLen) > Math.abs(longLen)) {
+      const swap = shortLen;
+      shortLen = longLen;
+      longLen = swap;
+      yLonger = true;
+    } else {
+      yLonger = false;
+    }
+
+    const endVal = longLen;
+
+    let incrementVal: number;
+    if (longLen < 0) {
+      incrementVal = -1;
+      longLen = -longLen;
+    } else {
+      incrementVal = 1;
+    }
+
+    const decInc: number = longLen == 0
+      ? 0
+      : Math.floor((shortLen << 16) / longLen);
+
+    let j = 0;
+    if (yLonger) {
+      for (let i = 0; i !== endVal; i += incrementVal) {
+        TextureAtlas.fillRect(x1 + (j >> 16), y1 + i, 1, 1);
+        j += decInc;
+      }
+    } else {
+      for (let i = 0; i !== endVal; i += incrementVal) {
+        TextureAtlas.fillRect(x1 + i, y1 + (j >> 16), 1, 1);
+        j += decInc;
+      }
+    }
   }
 
   /** Masks a transparent circle on this texture. */
@@ -805,4 +965,9 @@ export class Texture {
  */
 export function atlasCleanup() {
   TextureAtlas.cleanup();
+}
+
+/** Sets the atlas color! */
+export function atlasColor(color: Color) {
+  TextureAtlas.atlasColor(color);
 }

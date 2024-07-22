@@ -246,6 +246,11 @@ export class Vec2 {
   public length() {
     return Math.hypot(this.x, this.y);
   }
+  
+  /** Gets the squared length of this vector (`x ** 2 + y ** 2`) */
+  public lengthSquared() {
+    return this.x ** 2 + this.y ** 2;
+  }
 
   /** Gets the angle of the vector */
   public angle() {

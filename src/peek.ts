@@ -1,7 +1,10 @@
 import { Scene } from './nodes/Scene';
+import { Color } from './resources/Color';
 import { atlasCleanup } from './resources/Texture';
 import { Vec2 } from './resources/Vec';
 import { System } from './systems/System';
+import { Drawable } from './util/Drawable';
+import { lerp } from './util/math';
 import { AnyConstructorFor } from './util/types';
 
 interface PeekStartupOptions {
@@ -34,7 +37,7 @@ interface PeekStartupOptions {
 }
 
 /** The main Peek engine class */
-export class Peek {
+class PeekMain {
 
   // CANVAS
 
@@ -149,6 +152,8 @@ export class Peek {
   public static frameCount = 0;
   public static frameRate = 0;
 
+  private static singlePixelImageData: ImageData;
+
   /** Sets the screen size in pixels */
   public static screenSize(width: number, height: number) {
     this.screenWidth = width;
@@ -192,6 +197,7 @@ export class Peek {
       .mozImageSmoothingEnabled = false;
     (this.ctx as unknown as { imageSmoothingEnabled      : boolean })
       .imageSmoothingEnabled = false;
+    this.singlePixelImageData = this.ctx.createImageData(1, 1);
 
     if (options.startupScene) {
       // Not in debug mode, so load the startup scene
@@ -208,8 +214,8 @@ export class Peek {
       // Calculate framerate and delta
       const nowTime = performance.now();
       const delta = (nowTime - lastFrameTime) / 16.66;
-      this.frameRate = this.frameRate * 0.9 + (60 / delta) * 0.1;
-      smoothDelta = smoothDelta * 0.9 + delta * 0.1;
+      this.frameRate = lerp(this.frameRate, 60 / delta, 0.8);
+      smoothDelta = lerp(smoothDelta, delta, 0.3);
       lastFrameTime = nowTime;
 
       // Call the frame function
@@ -395,6 +401,36 @@ export class Peek {
 
   // DRAW HELPERS
 
+  /** Sets a single pixel within the atlas. This is a full replace! */
+  public static setPixel(x: number, y: number, color: Color) {
+    this.ctx.clearRect(~~x, ~~y, 1, 1);
+    this.ctx.fillStyle = color.fillStyle();
+    this.ctx.fillRect(~~x, ~~y, 1, 1);
+  }
+  /** Sets a single pixel within the atlas. This is a full replace! */
+  public static setPixelRaw(x: number, y: number, color: Uint8ClampedArray) {
+    this.singlePixelImageData.data.set(color);
+    this.ctx.putImageData(this.singlePixelImageData, x, y);
+  }
+
+  /** Gets a single pixel from within the atlas. */
+  public static getPixel(x: number, y: number): Color {
+    const data = this.ctx.getImageData(x, y, 1, 1).data;
+    return new Color(data[0], data[1], data[2], data[3]);
+  }
+  /** Gets a single pixel from within the atlas. */
+  public static getPixelRaw(x: number, y: number): Uint8ClampedArray {
+    return this.ctx.getImageData(x, y, 1, 1).data;
+  }
+
+  /** Erases everything that falls inside this rectangle. */
+  public static clearRect(
+    x: number, y: number,
+    width: number, height: number
+  ): void {
+    this.ctx.clearRect(x, y, width, height);
+  }
+
   /** Draws a filled rectangle given the top left point, width, and height. */
   public static fillRect(x: number, y: number, width: number, height: number) {
     this.ctx.fillRect(x, y, width, height);
@@ -402,17 +438,81 @@ export class Peek {
   
   /** Draws a rectangle outline given the top left point, width, and height. */
   public static rect(x: number, y: number, width: number, height: number) {
-    Peek.ctx.beginPath();
-    Peek.ctx.rect(
+    this.ctx.beginPath();
+    this.ctx.rect(
       Math.floor(x) + 0.5,
       Math.floor(y) + 0.5,
       width - 1,
       height - 1
     );
-    Peek.ctx.stroke();
+    this.ctx.stroke();
+  }
+
+  /**
+   * Draws a line using EFLA Variation D
+   * 
+   * Source: http://www.edepot.com/lined.html
+   * 
+   * @param x1 The line's start X
+   * @param y1 The line's start Y
+   * @param x2 The line's end X
+   * @param y2 The line's end Y
+   */
+  public static line(x1: number, y1: number, x2: number, y2: number) {
+    [this.ctx.fillStyle, this.ctx.strokeStyle] =
+      [this.ctx.strokeStyle, this.ctx.fillStyle];
+    
+    x1 = ~~x1;
+    x2 = ~~x2;
+    y1 = ~~y1;
+    y2 = ~~y2;
+
+    let shortLen = y2 - y1;
+    let longLen = x2 - x1;
+
+    let yLonger: boolean;
+    if (Math.abs(shortLen) > Math.abs(longLen)) {
+      const swap = shortLen;
+      shortLen = longLen;
+      longLen = swap;
+      yLonger = true;
+    } else {
+      yLonger = false;
+    }
+
+    const endVal = longLen;
+
+    let incrementVal: number;
+    if (longLen < 0) {
+      incrementVal = -1;
+      longLen = -longLen;
+    } else {
+      incrementVal = 1;
+    }
+
+    const decInc: number = longLen == 0
+      ? 0
+      : Math.floor((shortLen << 16) / longLen);
+
+    let j = 0;
+    if (yLonger) {
+      for (let i = 0; i !== endVal; i += incrementVal) {
+        this.ctx.fillRect(x1 + (j >> 16), y1 + i, 1, 1);
+        j += decInc;
+      }
+    } else {
+      for (let i = 0; i !== endVal; i += incrementVal) {
+        this.ctx.fillRect(x1 + i, y1 + (j >> 16), 1, 1);
+        j += decInc;
+      }
+    }
+
+    [this.ctx.fillStyle, this.ctx.strokeStyle] =
+      [this.ctx.strokeStyle, this.ctx.fillStyle];
   }
 
 }
+export const Peek: (typeof PeekMain) & Drawable = PeekMain;
 
 // Expose the engine!
 window.Peek = Peek;
