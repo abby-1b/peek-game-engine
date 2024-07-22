@@ -1,4 +1,5 @@
 import { FillRect } from '../nodes/control/FillRect';
+import { PNode } from '../nodes/PNode';
 import { Scene } from '../nodes/Scene';
 import { Sprite } from '../nodes/Sprite';
 import { Peek } from '../peek';
@@ -10,11 +11,11 @@ import { Texture } from './Texture';
 /**  */
 class WiggleSprite extends Sprite {
   /**  */
-  protected override process(): void {
+  protected override process(delta: number): void {
     this.pos.lerp(
-      Peek.screenWidth / 2 + (Math.random() * 10) - 5,
-      Peek.screenWidth / 2 + (Math.random() * 10) - 7,
-      0.1
+      (Math.random() - 0.5) * 10,
+      (Math.random() - 0.5) * 10,
+      0.13 ** delta
     );
   }
 }
@@ -22,6 +23,11 @@ class WiggleSprite extends Sprite {
 /** The Peek startup scene! */
 export class StartupScene extends Scene {
   private particles: WiggleSprite[] = [];
+  private background!: FillRect;
+  private centered!: PNode;
+  private logo!: Sprite;
+
+  private remainingLogoFrames = -1;
 
   /** Makes the startup scene, and sets the scene that comes after it. */
   public constructor(public afterScene: Scene) {
@@ -34,11 +40,12 @@ export class StartupScene extends Scene {
 
     // Add the background and logo
     this.add(
-      new FillRect().setColor(Color.WHITE),
-      new Sprite()
-        .setTexture(await Texture.preload('../../assets/logo-dark.png'))
-        .run(s => s.pos.set(Peek.screenWidth / 2, Peek.screenHeight / 2))
-        .hide()
+      this.background = new FillRect().setColor(Color.WHITE),
+      this.centered = new PNode().add(
+        this.logo = new Sprite()
+          .setTexture(await Texture.preload('../../assets/logo-dark.png'))
+          .hide()
+      )
     );
     
     // Add the particles
@@ -54,12 +61,12 @@ export class StartupScene extends Scene {
           })
             .maskCircle(true)
         );
-      particle.pos.spreadRangeVec(
-        Peek.center,
+      particle.pos.spreadRange(
+        0, 0,
         Peek.screenWidth + Peek.screenHeight,
-        (Peek.screenWidth + Peek.screenHeight) * 2
+        (Peek.screenWidth + Peek.screenHeight) * 3
       );
-      this.add(particle);
+      this.centered.add(particle);
       this.particles.push(particle);
     }
 
@@ -67,20 +74,36 @@ export class StartupScene extends Scene {
 
   /** Animates the startup sequence */
   protected override process(): void {
-    
-    if (Peek.frameCount == 100) {
+    this.centered.pos.set(Peek.screenWidth / 2, Peek.screenHeight / 2);
+
+    if (this.remainingLogoFrames == -1) {
+      if (Peek.frameCount % 10 == 0) {
+        // Check distances every ten frames
+        let totalDist = 0;
+        for (const particle of this.particles) {
+          totalDist += particle.pos.lengthSquared();
+        }
+        console.log(totalDist);
+
+        if (totalDist < 200) {
+          this.remainingLogoFrames = 60;
+        }
+      }
+    } else if (this.remainingLogoFrames == 0) {
+      Peek.loadScene(this.afterScene);
+    } else {
       // Change background
-      (this.children[0] as FillRect).color = Color.BLACK;
-
+      this.background.color = Color.BLACK;
+  
       // Show logo
-      (this.children[1] as Sprite).show();
-
+      this.logo.show();
+  
       // Remove particles
-      this.remove(...this.particles);
+      this.centered.remove(...this.particles);
       this.particles = [];
 
-    } else if (Peek.frameCount == 240) {
-      Peek.loadScene(this.afterScene);
+      // Tick the timer
+      this.remainingLogoFrames--;
     }
   }
 
