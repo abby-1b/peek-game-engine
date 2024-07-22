@@ -5,6 +5,7 @@ import { Input } from '../control/inputs/Input';
 import { DynamicBody } from '../nodes/physics/DynamicBody';
 import { PNode } from '../nodes/PNode';
 import { Peek } from '../peek';
+import { Color } from '../resources/Color';
 import { Font } from '../resources/Font';
 import { Texture } from '../resources/Texture';
 import { Vec2 } from '../resources/Vec';
@@ -32,6 +33,10 @@ export class Debugger extends System {
     ),
     6, 8, false
   );
+
+  public static frameRateDrawPosition = 0;
+  public static lastFrameRate = 60;
+  public static frameRateTexture = new Texture(128, 32);
 
   /** Initializes the debugger. */
   public constructor(debugKey: string = '\\') {
@@ -146,26 +151,29 @@ export class Debugger extends System {
       // Draw this hitbox
       const hb = child.getHitbox(true);
       Peek.ctx.strokeStyle = 'rgb(255, 0, 0)';
-      Peek.rect(
-        Math.floor(hb.x),
-        Math.floor(hb.y),
-        hb.w == 0 ? 1.01 : hb.w,
-        hb.h == 0 ? 1.01 : hb.h
-      );
+      if (hb.w == 0 && hb.h == 0) {
+        Peek.line(hb.x + 2, hb.y, hb.x + 4, hb.y);
+        Peek.line(hb.x - 2, hb.y, hb.x - 4, hb.y);
+        Peek.line(hb.x, hb.y + 2, hb.x, hb.y + 4);
+        Peek.line(hb.x, hb.y - 2, hb.x, hb.y - 4);
+      } else {
+        Peek.rect(
+          hb.x,
+          hb.y,
+          hb.w == 0 ? 1 : hb.w,
+          hb.h == 0 ? 1 : hb.h
+        );
+      }
 
       if (child instanceof DynamicBody) {
         const dynamicBody = child as DynamicBody;
         Peek.ctx.strokeStyle = 'rgb(0, 0, 255)';
-        Peek.ctx.moveTo(
+        Peek.line(
           hb.x + hb.w / 2,
-          hb.y + hb.h / 2
-        );
-        Peek.ctx.lineTo(
+          hb.y + hb.h / 2,
           hb.x + hb.w / 2 + dynamicBody.velocity.x * 16,
           hb.y + hb.h / 2 + dynamicBody.velocity.y * 16
         );
-        Peek.ctx.stroke();
-        Peek.ctx.strokeStyle = 'rgb(255, 0, 0)';
       }
     };
     Debugger.runAfter(Peek, 'frame', function() {
@@ -186,16 +194,39 @@ export class Debugger extends System {
 
       // Draw the extra information
       Debugger.font.draw(
-        'Hello, world\nProgrammed to work and not to feel\n' +
-        'Not even sure that this is real\nHello, world',
+        'FPS: ' + Math.round(Peek.frameRate),
         1, 1
       );
+
+      let frameRatePos =
+        (120 - Peek.frameRate) *
+        Debugger.frameRateTexture.height / 120;
+      if (frameRatePos < 0) {
+        frameRatePos = 0;
+      } else if (frameRatePos >= Debugger.frameRateTexture.height) {
+        frameRatePos = Debugger.frameRateTexture.height - 1;
+      }
+      Debugger.frameRateTexture.setPixel(
+        Debugger.frameRateDrawPosition,
+        frameRatePos,
+        Color.RED
+      );
+      Debugger.lastFrameRate = frameRatePos;
+      Debugger.frameRateDrawPosition++;
+      if (Debugger.frameRateDrawPosition >= Debugger.frameRateTexture.width) {
+        Debugger.frameRateDrawPosition = 0;
+      }
+      Debugger.frameRateTexture.clearRect(
+        Debugger.frameRateDrawPosition, 0,
+        1, Debugger.frameRateTexture.height
+      );
+      Debugger.frameRateTexture.draw(1, 10);
     }, true);
   }
 
-  /** Processes debug keys */
+  /**  */
   public override process(): void {
-    
+      
   }
 
   /** Prints a debug message to the console. */
