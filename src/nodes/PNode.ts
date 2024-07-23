@@ -73,6 +73,10 @@ export class PNode {
   /** Adds children to this node */
   public add(...children: PNode[]): this {
     for (const child of children) {
+      if (!child.isPreloaded) {
+        child.preloadCaller();
+      }
+
       // Set the child's parent to be `this`
       // This is the only place that changes a child's parent
       (child as { parent: PNode }).parent = this;
@@ -168,6 +172,7 @@ export class PNode {
 
     // Call *this* preload function after the children are loaded
     await this.preload();
+    this.isPreloaded = true;
   }
 
   /**
