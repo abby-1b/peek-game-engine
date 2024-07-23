@@ -401,24 +401,24 @@ class PeekMain {
 
   // DRAW HELPERS
 
-  /** Sets a single pixel within the atlas. This is a full replace! */
+  /** Sets a single pixel from the canvas. This is a full replace! */
   public static setPixel(x: number, y: number, color: Color) {
     this.ctx.clearRect(~~x, ~~y, 1, 1);
     this.ctx.fillStyle = color.fillStyle();
     this.ctx.fillRect(~~x, ~~y, 1, 1);
   }
-  /** Sets a single pixel within the atlas. This is a full replace! */
+  /** Sets a single pixel from the canvas. This is a full replace! */
   public static setPixelRaw(x: number, y: number, color: Uint8ClampedArray) {
     this.singlePixelImageData.data.set(color);
     this.ctx.putImageData(this.singlePixelImageData, x, y);
   }
 
-  /** Gets a single pixel from within the atlas. */
+  /** Gets a single pixel from the canvas. */
   public static getPixel(x: number, y: number): Color {
     const data = this.ctx.getImageData(x, y, 1, 1).data;
     return new Color(data[0], data[1], data[2], data[3]);
   }
-  /** Gets a single pixel from within the atlas. */
+  /** Gets a single pixel from the canvas. */
   public static getPixelRaw(x: number, y: number): Uint8ClampedArray {
     return this.ctx.getImageData(x, y, 1, 1).data;
   }
