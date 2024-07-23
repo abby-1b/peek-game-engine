@@ -208,23 +208,27 @@ class PeekMain {
     }
 
     // Start the frame loop
-    let lastFrameTime = performance.now();
-    let smoothDelta = 1;
-    const frameCallback = () => {
-      // Calculate framerate and delta
-      const nowTime = performance.now();
-      const delta = (nowTime - lastFrameTime) / 16.66;
-      this.frameRate = lerp(this.frameRate, 60 / delta, 0.8);
-      smoothDelta = lerp(smoothDelta, delta, 0.3);
-      lastFrameTime = nowTime;
+    this.lastFrameTime = performance.now();
+    window.requestAnimationFrame(this.frameCallback);
+  }
 
-      // Call the frame function
-      this.frame(smoothDelta > 5 ? 5 : smoothDelta);
+  private static lastFrameTime: number;
+  private static smoothDelta = 1;
 
-      // Start the next frame
-      window.requestAnimationFrame(frameCallback);
-    };
-    window.requestAnimationFrame(frameCallback);
+  /** Used to initialize the frame loop */
+  private static frameCallback() {
+    // Calculate framerate and delta
+    const nowTime = performance.now();
+    const delta = (nowTime - Peek.lastFrameTime) / 16.66;
+    Peek.frameRate = lerp(Peek.frameRate, 60 / delta, 0.8);
+    Peek.smoothDelta = lerp(Peek.smoothDelta, delta, 0.3);
+    Peek.lastFrameTime = nowTime;
+
+    // Call the frame function
+    Peek.frame(Peek.smoothDelta > 5 ? 5 : Peek.smoothDelta);
+
+    // Start the next frame (recursive)
+    window.requestAnimationFrame(Peek.frameCallback);
   }
 
   /** Runs every time the window is resized, and once when Peek initializes */
