@@ -1,10 +1,13 @@
 import { Peek } from '../peek';
+import { BlendMode } from '../util/BlendMode';
 import { Drawable } from '../util/Drawable';
 import { Color } from './Color';
 
 const ATLAS_STARTUP_SIZE = 32;
 
 const ATLAS_CLEANUP_MAX_TIME_MS = 0.5;
+
+const TEXTURE_OPTIMIZE_CHANCE = 0.01;
 
 /** A position within the atlas. In the form X, Y */
 type AtlasPos = [number, number];
@@ -61,6 +64,11 @@ class TextureAtlasMain {
       ATLAS_STARTUP_SIZE, ATLAS_STARTUP_SIZE
     );
     this.atlas = this.atlasCanvas.getContext('2d', {
+      /*
+      This property isn't set to true because *most* operations aren't reads.
+      Setting this to true keeps a copy of the texture on the CPU, which
+      could be slow.
+      */
       // willReadFrequently: true
     })!;
     (this.atlas as unknown as { webkitImageSmoothingEnabled: boolean })
@@ -74,11 +82,38 @@ class TextureAtlasMain {
   }
 
   /** Gets a rectangle within the atlas that equals the requested space. */
-  public static requestSize(width: number, height: number): AtlasRect {
+  public static requestSize(width: number, height: number): AtlasRect;
+  
+  /**
+   * Gets a rectangle within the atlas that equals the requested space. If no
+   * rectangle is found that is more optimized than the given level, undefined
+   * is returned.
+   */
+  public static requestSize(
+    width: number, height: number,
+    moreOptimizedThan?: number
+  ): AtlasRect | undefined;
+
+  /** Gets a rectangle within the atlas that equals the requested space. */
+  public static requestSize(
+    width: number, height: number,
+    moreOptimizedThan?: number
+  ) {
+    // const cleanupTimes = ~~(this.freeRects.length * 0.8);
+    // console.log(cleanupTimes);
+    // for (let i = 0; i < cleanupTimes; i++) {
+    //   this.cleanup();
+    // }
+
     // Find a free rectangle that fits this size
     for (let i = 0; i < this.freeRects.length; i++) {
       const rect = this.freeRects[i]; // Get the rect
       if (rect.w >= width && rect.h >= height) {
+        if (moreOptimizedThan) {
+          const optimization = rect.x + rect.y;
+          if (optimization >= moreOptimizedThan) continue;
+        }
+
         // Found a suitable rectangle!
         const retRect: AtlasRect = {
           x: rect.x, y: rect.y,
@@ -97,6 +132,10 @@ class TextureAtlasMain {
 
         return retRect;
       }
+    }
+
+    if (moreOptimizedThan !== undefined) {
+      return undefined;
     }
 
     // There were no free rects! Figure out how many times we'd have
@@ -457,9 +496,32 @@ class TextureAtlasMain {
     this.atlas.strokeStyle = this.atlas.fillStyle = color.fillStyle();
   }
 
+  /** Sets the blend mode on the atlas. Make sure to set it back to normal! */
+  public static atlasBlendMode(blendMode: BlendMode) {
+    // TODO: this
+    this.atlas.globalCompositeOperation = blendMode;
+  }
+
   /** Puts an image into the atlas at a certain position */
-  public static loadImage(x: number, y: number, image: HTMLImageElement) {
+  public static putImage(
+    x: number, y: number,
+    image: CanvasImageSource = this.atlasCanvas
+  ) {
     this.atlas.drawImage(image, x, y);
+  }
+
+  /** Puts a portion of an image into the atlas at a certain position */
+  public static putImagePortion(
+    sourceX: number, sourceY: number,
+    sourceW: number, sourceH: number,
+    destinationX: number, destinationY: number,
+    image: CanvasImageSource = this.atlasCanvas
+  ) {
+    this.atlas.drawImage(
+      image,
+      sourceX, sourceY, sourceW, sourceH,
+      destinationX, destinationY, sourceW, sourceH
+    );
   }
 
   /** Draws an image (rotated around its center) inside a given texture */
@@ -633,6 +695,18 @@ class TextureAtlasMain {
       }
     }
   }
+
+  /** Saves the state of the atlas (canvas drawing operation) */
+  public static stateSave() { this.atlas.save(); }
+  /** Restores the state of the atlas (canvas drawing operation) */
+  public static stateRestore() { this.atlas.restore(); }
+
+  /** Starts a clip (mask) */
+  public static clip(x: number, y: number, w: number, h: number) {
+    this.atlas.beginPath();
+    this.atlas.rect(x, y, w, h);
+    this.atlas.clip();
+  }
 }
 
 /** Checks if a size change makes for a better (more square) ratio */
@@ -654,24 +728,29 @@ function ratioIsBetter(
 }
 const TextureAtlas: (typeof TextureAtlasMain) & Drawable = TextureAtlasMain;
 
-/** A texture is an index into the texture atlas. */
+/**
+ * A texture that can be loaded, unloaded, drawn on... pretty much anything!
+ * 
+ * Since all textures exist within the texture atlas, each texture is
+ * responsible for only using/modifying its portion of the atlas.
+ */
 export class Texture implements Drawable {
   private static freeListener = new FinalizationRegistry((pos: AtlasPos) => {
     // This runs when a texture is garbage collected!
     console.log(`Texture at (${pos[0]}, ${pos[1]}) was freed!`);
     TextureAtlas.freePos(pos);
   });
-
-  // Size of this texture
+  private static currTextureID = 0;
+  public readonly textureId: number;
 
   /** The width of this texture */
-  public readonly width: number;
+  public readonly width!: number;
   /** The height of this texture */
-  public readonly height: number;
+  public readonly height!: number;
 
   // Atlas position
-  private atlasX: number;
-  private atlasY: number;
+  private atlasX!: number;
+  private atlasY!: number;
 
   /**
    * Makes a new texture object, which points to the texture atlas.
@@ -680,25 +759,32 @@ export class Texture implements Drawable {
    * the width and height. Empty textures don't take up space on the atlas.
    */
   public constructor(width: number, height: number) {
-    if (width == -1) {
+    this.textureId = Texture.currTextureID++;
+    if (width == -1 || height == -1) {
       // Just make the object, without allocating space on the atlas
       this.width = -1;
       this.height = -1;
       this.atlasX = -1;
       this.atlasY = -1;
     } else {
-      // Get our atlas position
-      const atlasRect = TextureAtlas.requestSize(width, height);
-      this.atlasX = atlasRect.x;
-      this.atlasY = atlasRect.y;
-      
-      // Add ourselves to the garbage collection listener
-      Texture.freeListener.register(this, [ this.atlasX, this.atlasY ]);
-
-      // Set our width and height
-      this.width = width;
-      this.height = height;
+      // The size is already provided
+      this.setSize(width, height);
     }
+  }
+
+  /** Sets the size of this texture, making sure it gets freed after its use. */
+  private setSize(width: number, height: number) {
+    // TODO: debugger (ensure `this.width` and `this.height` are -1)
+    (this as { width : number }).width  = width;
+    (this as { height: number }).height = height;
+
+    // Set the texture's atlas position
+    const atlasRect = TextureAtlas.requestSize(width, height);
+    this.atlasX = atlasRect.x;
+    this.atlasY = atlasRect.y;
+
+    // Add this texture to the garbage collection listener
+    Texture.freeListener.register(this, [ this.atlasX, this.atlasY ]);
   }
 
   /** Loads a texture from the file manager, given a path */
@@ -712,17 +798,11 @@ export class Texture implements Drawable {
     // Load the image (async)
     const img = new Image();
     img.onload = () => {
-      // Set the texture's dimensions (readonly override)
-      (tex as { width : number }).width  = img.width;
-      (tex as { height: number }).height = img.height;
-
-      // Set the texture's atlas position
-      const atlasRect = TextureAtlas.requestSize(img.width, img.height);
-      tex.atlasX = atlasRect.x;
-      tex.atlasY = atlasRect.y;
+      // Initialize the texture
+      tex.setSize(img.width, img.height);
 
       // Put the image on the atlas
-      TextureAtlas.loadImage(atlasRect.x, atlasRect.y, img);
+      TextureAtlas.putImage(tex.atlasX, tex.atlasY, img);
 
       // Run the callback (if any)
       if (callback) callback(true);
@@ -769,6 +849,7 @@ export class Texture implements Drawable {
     // Create the new texture
     const out = new Texture(finalW, finalH);
 
+    // Store imageData arrays (for faster reading & writing)
     const sourceData = TextureAtlas.getRawImageData(
       texture.atlasX, texture.atlasY,
       sourceW, sourceH
@@ -782,10 +863,9 @@ export class Texture implements Drawable {
     const finalCenterX = (finalW - 1) / 2;
     const finalCenterY = (finalH - 1) / 2;
 
-    // Iterate over each target pixel
     for (let x = 0; x < finalW; x++) {
       for (let y = 0; y < finalH; y++) {
-        // Get the corresponding target pixel
+        // Translate target to source positions
 
         // Translate to origin
         const dx = x - finalCenterX;
@@ -816,6 +896,19 @@ export class Texture implements Drawable {
 
     TextureAtlas.putRawImageData(out.atlasX, out.atlasY, outImageData);
     return out;
+  }
+
+  /**
+   * Clones this texture, allocating it in a new spot in the texture atlas.
+   * Modifying the clone will not modify the original, as it's a copy.
+   */
+  public clone() {
+    const newTexture = new Texture(this.width, this.height);
+    TextureAtlas.putImagePortion(
+      this.atlasX, this.atlasY, this.width, this.height,
+      newTexture.atlasX, newTexture.atlasY
+    );
+    return newTexture;
   }
 
   /** Sets a pixel within the texture */
@@ -852,11 +945,13 @@ export class Texture implements Drawable {
 
   /** Draws a filled rectangle given the top left point, width, and height. */
   public fillRect(x: number, y: number, width: number, height: number) {
+    // TODO: debugger hook
     TextureAtlas.fillRect(x + this.atlasX, y + this.atlasY, width, height);
   }
   
   /** Draws a rectangle outline given the top left point, width, and height. */
   public rect(x: number, y: number, width: number, height: number) {
+    // TODO: debugger hook
     TextureAtlas.rect(
       x + this.atlasX, y + this.atlasY,
       width, height
@@ -947,14 +1042,102 @@ export class Texture implements Drawable {
     return this;
   }
 
+  /**
+   * Applies a tint to this texture. This modifies the texture,
+   * and is a slow method.
+   * @param color The color to multiply each pixel by
+   * @returns The modified texture
+   */
+  public tint(color: Color): this {
+    // Store the original texture somewhere else
+    const tempPos = TextureAtlas.requestSize(this.width, this.height);
+    TextureAtlas.putImagePortion(
+      this.atlasX, this.atlasY, this.width, this.height,
+      tempPos.x, tempPos.y
+    );
+
+    // Clip
+    TextureAtlas.stateSave();
+    TextureAtlas.clip(this.atlasX, this.atlasY, this.width, this.height);
+
+    TextureAtlas.atlasBlendMode(BlendMode.LUMINOSITY);
+    TextureAtlas.putImagePortion(
+      tempPos.x, tempPos.y, tempPos.w, tempPos.h,
+      this.atlasX, this.atlasY
+    );
+    
+    TextureAtlas.atlasBlendMode(BlendMode.COLOR);
+    TextureAtlas.putImagePortion(
+      tempPos.x, tempPos.y, tempPos.w, tempPos.h,
+      this.atlasX, this.atlasY
+    );
+
+    TextureAtlas.atlasBlendMode(BlendMode.MULTIPLY);
+    TextureAtlas.atlasColor(color);
+    TextureAtlas.fillRect(this.atlasX, this.atlasY, this.width, this.height);
+
+    TextureAtlas.atlasBlendMode(BlendMode.DEST_IN);
+    TextureAtlas.putImagePortion(
+      tempPos.x, tempPos.y, tempPos.w, tempPos.h,
+      this.atlasX, this.atlasY
+    );
+    // TextureAtlas.atlasBlendMode(BlendMode.NORMAL);
+
+    TextureAtlas.stateRestore();
+
+    // Release the temporary texture
+    TextureAtlas.freePos([ tempPos.x, tempPos.y ]);
+
+    return this;
+  }
+
   /** Draws this texture to a specific position */
   public draw(x: number, y: number, width?: number, height?: number) {
-    if (this.width == -1) return;
+    if (this.width == -1 || this.height == -1) return;
     Peek.ctx.drawImage(
       TextureAtlas.atlasCanvas,
       this.atlasX, this.atlasY, this.width, this.height,
       x, y, width ?? this.width, height ?? this.height,
     );
+
+    if (Math.random() < TEXTURE_OPTIMIZE_CHANCE) {
+      this.tryOptimizeInAtlas();
+    }
+  }
+
+  /** Tries to move this texture closer to (0, 0) in the atlas. */
+  private tryOptimizeInAtlas() {
+    // Allocate the new space
+    const newSpot = TextureAtlas.requestSize(
+      this.width,
+      this.height,
+      this.atlasX + this.atlasY
+    );
+
+    if (newSpot) {
+      // Unregister the old space (which is freed at the end)
+      Texture.freeListener.unregister(this);
+
+      // Save old position & update to new position
+      const oldX = this.atlasX;
+      const oldY = this.atlasY;
+      this.atlasX = newSpot.x;
+      this.atlasY = newSpot.y;
+
+      // Register the new position
+      Texture.freeListener.register(this, [ this.atlasX, this.atlasY ]);
+
+      TextureAtlas.clearRect(
+        this.atlasX, this.atlasY,
+        this.width, this.height
+      );
+      TextureAtlas.putImagePortion(
+        oldX, oldY, this.width, this.height,
+        this.atlasX, this.atlasY
+      );
+
+      TextureAtlas.freePos([ oldX, oldY ]);
+    }
   }
 }
 
@@ -971,3 +1154,5 @@ export function atlasCleanup() {
 export function atlasColor(color: Color) {
   TextureAtlas.atlasColor(color);
 }
+
+window.TextureAtlas = TextureAtlas;
