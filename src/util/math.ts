@@ -89,6 +89,16 @@ export function nerpAngle(a: number, b: number, i: number, n: number) {
   return nerp(a, b, i, n);
 }
 
+/**
+ * Prepares an interpolation value using delta. This can then
+ * be inserted into any interpolation function.
+ * @param i The interpolation amount
+ * @param delta The delta, or time elapsed between the current and last frames
+ */
+export function interpolateDelta(i: number, delta: number) {
+  return 1 - 0.5 ** (i * delta);
+}
+
 // RANOMNESS
 
 /**

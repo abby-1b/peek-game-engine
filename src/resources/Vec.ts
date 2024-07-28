@@ -13,7 +13,7 @@ export class Vec2 {
 
   // VECTOR MATH
 
-  /** Adds the values of another vector to this one */
+  /** Adds the given values to this vector */
   public add(x: number, y: number) {
     this.x += x;
     this.y += y;
@@ -24,17 +24,53 @@ export class Vec2 {
     this.x += v.x;
     this.y += v.y;
   }
+
+  /**
+   * Adds the given values to this vector.
+   * The values are multiplied by the given scalar before being added.
+   */
+  public addWithScalar(x: number, y: number, scalar: number) {
+    this.x += x * scalar;
+    this.y += y * scalar;
+  }
   
-  /** Adds the values of another vector to this one */
+  /**
+   * Adds the values of another vector to this one.
+   * The values are multiplied by the given scalar before being added.
+   */
+  public addVecWithScalar(v: Vec2, scalar: number) {
+    this.x += v.x * scalar;
+    this.y += v.y * scalar;
+  }
+  
+  /** Subtracts the given values to this vector */
   public sub(x: number, y: number) {
     this.x -= x;
     this.y -= y;
   }
 
-  /** Adds the values of another vector to this one */
+  /** Subtracts the values of another vector from this one */
   public subVec(v: Vec2) {
     this.x -= v.x;
     this.y -= v.y;
+  }
+
+  /**
+   * Subtracts the given values from this vector.
+   * The values are multiplied by the given scalar before being subtracted.
+   */
+  public subWithScalar(x: number, y: number, scalar: number) {
+    this.x -= x * scalar;
+    this.y -= y * scalar;
+  }
+  
+  /**
+   * Subtracts the values of another vector from this one.
+   * The values are multiplied by the given scalar before being subtracted.
+   */
+  public subVecWithScalar(v: Vec2, scalar: number) {
+    this.x -= v.x * scalar;
+    this.y -= v.y * scalar;
   }
 
   /** Multiplies this vector by a scalar value */
@@ -83,14 +119,52 @@ export class Vec2 {
     return new Vec2(this.x + v.x, this.y + v.y);
   }
 
-  /** Subtracts the values of another vector from this one and returns */
+  /**
+   * Adds the given values to this vector, returning the mutated Vec.
+   * The values are multiplied by the given scalar before being added.
+   */
+  public addWithScalarRet(x: number, y: number, scalar: number) {
+    return new Vec2(this.x + x * scalar, this.y + y * scalar);
+  }
+  
+  /**
+   * Adds the values of another vector to this one, returning the mutated Vec.
+   * The values are multiplied by the given scalar before being added.
+   */
+  public addVecWithScalarRet(v: Vec2, scalar: number) {
+    return new Vec2(this.x + v.x * scalar, this.y + v.y * scalar);
+  }
+
+  /**
+   * Subtracts the values of another vector
+   * from this one, returning the mutated Vec.
+   */
   public subRet(x: number, y: number): Vec2 {
     return new Vec2(this.x - x, this.y - y);
   }
 
-  /** Subtracts the values of another vector from this one and returns */
+  /**
+   * Subtracts the values of another vector
+   * from this one, returning the mutated Vec.
+   */
   public subVecRet(v: Vec2): Vec2 {
     return new Vec2(this.x - v.x, this.y - v.y);
+  }
+
+  /**
+   * Subtracts the given values from this vector, returning the mutated Vec.
+   * The values are multiplied by the given scalar before being subtracted.
+   */
+  public subWithScalarRet(x: number, y: number, scalar: number) {
+    return new Vec2(this.x + x * scalar, this.y + y * scalar);
+  }
+  
+  /**
+   * Subtracts the values of another vector from this one, returning the mutated
+   * Vec. The values are multiplied by the given scalar before being subtracted.
+   */
+  public subVecWithScalarRet(v: Vec2, scalar: number) {
+    return new Vec2(this.x + v.x * scalar, this.y + v.y * scalar);
   }
 
   /** Multiplies this vector by a scalar value and returns */
@@ -138,14 +212,16 @@ export class Vec2 {
   }
 
   /**
-   * Normalizes this vector to be of length 1
-   * If the vector is (0, 0), it remains at (0, 0)
+   * Normalizes this vector to be of length 1.
+   * If the vector is of length 0, it remains that way.
+   * 
+   * Passing a value to the `length` sets the vector's length.
    */
-  public normalize() {
-    const len = Math.hypot(this.x, this.y);
-    if (len == 0) return;
-    this.x /= len;
-    this.y /= len;
+  public normalize(targetLength = 1) {
+    const realLength = Math.hypot(this.x, this.y) / targetLength;
+    if (realLength == 0) return;
+    this.x /= realLength;
+    this.y /= realLength;
   }
 
   /** Rounds the X and Y components (to the nearest integer) */
@@ -238,6 +314,18 @@ export class Vec2 {
   public nerpVec(v: Vec2, i: number, n: number) {
     this.x = nerp(this.x, v.x, i, n);
     this.y = nerp(this.y, v.y, i, n);
+  }
+
+  // COMPARING
+
+  /** Checks if this vector's components equal some value */
+  public equals(x: number, y: number) {
+    return this.x == x && this.y == y;
+  }
+  
+  /** Checks if this vector's components equal some value */
+  public equalsVec(v: Vec2) {
+    return this.x == v.x && this.y == v.y;
   }
 
   // FETCHING
