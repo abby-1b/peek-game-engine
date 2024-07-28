@@ -151,6 +151,10 @@ class PeekMain {
   /** The amount of frames elapsed since the start of the engine */
   public static frameCount = 0;
   public static frameRate = 0;
+  public static smoothFrameRate = 0;
+
+  private static lastFrameTime: number;
+  private static smoothDelta = 1;
 
   private static singlePixelImageData: ImageData;
 
@@ -212,15 +216,13 @@ class PeekMain {
     window.requestAnimationFrame(this.frameCallback);
   }
 
-  private static lastFrameTime: number;
-  private static smoothDelta = 1;
-
   /** Used to initialize the frame loop */
   private static frameCallback() {
     // Calculate framerate and delta
     const nowTime = performance.now();
-    const delta = (nowTime - Peek.lastFrameTime) / 16.66;
-    Peek.frameRate = lerp(Peek.frameRate, 60 / delta, 0.8);
+    const delta = (nowTime - Peek.lastFrameTime) / 16.6666666;
+    Peek.frameRate = 60 / delta;
+    Peek.smoothFrameRate = lerp(Peek.smoothFrameRate, Peek.frameRate, 0.05);
     Peek.smoothDelta = lerp(Peek.smoothDelta, delta, 0.3);
     Peek.lastFrameTime = nowTime;
 
