@@ -3,7 +3,8 @@
 declare global {
   interface Window {
     Peek: any,
-    Debugger: any
+    Debugger: any,
+    TextureAtlas: any
   }
 }
 
