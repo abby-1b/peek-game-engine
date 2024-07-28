@@ -26,12 +26,14 @@ export class DynamicBody extends StaticBody {
    * make sure to call `super.process()` if you want physics to work!
    */
   protected override process(delta: number): void {
-    this.pos.addVec(this.velocity.mulScalarRet(delta));
-    this.pos.addVec(this.acceleration.mulScalarRet(0.5 * delta ** 2));
+    this.velocity.subVec(this.velocity.mulScalarRet(1 - 0.5 ** (this.friction * delta)));
+    this.velocity.addVec(this.acceleration.mulScalarRet(0.5 * delta));
 
-    // + acceleration.x * delta 
-    this.velocity.addVec(this.acceleration.mulScalarRet(delta));
-    this.velocity.subVec(this.velocity.mulScalarRet(this.friction ** delta));
+    this.pos.addVec(this.velocity.mulScalarRet(delta));
+    // this.pos.addVec(this.acceleration.mulScalarRet(0.5 * delta ** 2));
+    
+    this.velocity.subVec(this.velocity.mulScalarRet(1 - 0.5 ** (this.friction * delta)));
+    this.velocity.addVec(this.acceleration.mulScalarRet(0.5 * delta));
   }
 
   /** Sets this body's acceleration. Use this, never add to the speed! */
