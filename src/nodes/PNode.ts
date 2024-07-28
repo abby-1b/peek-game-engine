@@ -7,6 +7,14 @@ export class PNode {
   /** Whether or not this node is hidden */
   public isHidden: boolean = false;
 
+  /**
+   * This determines whether or not this node is paused. Paused nodes don't get
+   * their `.process()` method called, nor their children's. Because of this,
+   * the unpause functionality has to be outside the node's process method,
+   * like in a callback, signal, or parent method.
+   */
+  public isPaused = false;
+
   /** This node's position */
   public pos: Vec2 = Vec2.zero();
 
@@ -19,6 +27,7 @@ export class PNode {
   /** This node's children */
   public children: PNode[] = [];
 
+  /** Keeps track of if this node's preload function was already called */
   private isPreloaded: boolean = false;
 
   /** Keeps track of if this node's ready function was already called */
@@ -140,6 +149,15 @@ export class PNode {
     return this.remove(...this.children.filter((c, i) => indices.includes(i)));
   }
 
+  /**
+   * Ran when this node is "moved". Moving includes being 
+   * added to a scene, being removed from a scene, or 
+   * anything that changes this node's '.parent' property.
+   */
+  protected moved() {}
+
+  // STATE METHODS
+
   /** Hides this node */
   public hide(): this {
     this.isHidden = true;
@@ -151,12 +169,16 @@ export class PNode {
     return this;
   }
 
-  /**
-   * Ran when this node is "moved". Moving includes being added to a scene,
-   * being reparented, being removed from a scene, or anything that changes this
-   * node's '.parent' property.
-   */
-  protected moved() {}
+  /** Pauses this node */
+  public pause(): this {
+    this.isPaused = true;
+    return this;
+  }
+  /** Pauses this node */
+  public unpause(): this {
+    this.isPaused = false;
+    return this;
+  }
 
   // PROCESSING METHODS
 
