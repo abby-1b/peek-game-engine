@@ -6,20 +6,20 @@ import { PNode } from './PNode';
 
 /** A sprite draws a texture to the screen. */
 export class Sprite extends PNode {
-  public readonly texture: Texture | undefined;
-  public readonly blendMode: BlendMode = BlendMode.NORMAL;
+  public texture: Texture | undefined;
+  public blendMode: BlendMode = BlendMode.NORMAL;
   public isCentered = true;
   public scale = 1;
 
   /** Sets the texture for this sprite */
   public setTexture(texture: Texture): this {
-    (this as { texture: Texture }).texture = texture;
+    this.texture = texture;
     return this;
   }
 
   /** Sets the blend mode for this sprite! */
   public setBlendMode(blendMode: BlendMode): this {
-    (this as { blendMode: BlendMode }).blendMode = blendMode;
+    this.blendMode = blendMode;
     return this;
   }
 
