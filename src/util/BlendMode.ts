@@ -7,4 +7,8 @@ export const enum BlendMode {
   SCREEN = 'screen',
   OVERLAY = 'overlay',
   SUBTRACT = 'difference',
+  DEST_IN = 'destination-in',
+  
+  LUMINOSITY = 'luminosity',
+  COLOR = 'color',
 }
