@@ -153,8 +153,9 @@ class PeekMain {
   public static frameRate = 0;
   public static smoothFrameRate = 0;
 
+  public static delta = 0.1;
   private static lastFrameTime: number;
-  private static smoothDelta = 1;
+  public static smoothDelta = 1;
 
   private static singlePixelImageData: ImageData;
 
@@ -220,10 +221,10 @@ class PeekMain {
   private static frameCallback() {
     // Calculate framerate and delta
     const nowTime = performance.now();
-    const delta = (nowTime - Peek.lastFrameTime) / 16.6666666;
-    Peek.frameRate = 60 / delta;
+    Peek.delta = (nowTime - Peek.lastFrameTime) / 16.6666666;
+    Peek.frameRate = 60 / Peek.delta;
     Peek.smoothFrameRate = lerp(Peek.smoothFrameRate, Peek.frameRate, 0.05);
-    Peek.smoothDelta = lerp(Peek.smoothDelta, delta, 0.3);
+    Peek.smoothDelta = lerp(Peek.smoothDelta, Peek.delta, 0.3);
     Peek.lastFrameTime = nowTime;
 
     // Call the frame function
