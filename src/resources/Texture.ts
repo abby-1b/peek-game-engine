@@ -91,7 +91,7 @@ class TextureAtlasMain {
    */
   public static requestSize(
     width: number, height: number,
-    moreOptimizedThan?: number
+    moreOptimizedThan: number
   ): AtlasRect | undefined;
 
   /** Gets a rectangle within the atlas that equals the requested space. */
@@ -109,9 +109,10 @@ class TextureAtlasMain {
     for (let i = 0; i < this.freeRects.length; i++) {
       const rect = this.freeRects[i]; // Get the rect
       if (rect.w >= width && rect.h >= height) {
-        if (moreOptimizedThan) {
-          const optimization = rect.x + rect.y;
+        if (moreOptimizedThan !== undefined) {
+          const optimization = this.positionScore(rect.x, rect.y);
           if (optimization >= moreOptimizedThan) continue;
+          console.log(this.freeRects.length);
         }
 
         // Found a suitable rectangle!
@@ -152,6 +153,11 @@ class TextureAtlasMain {
 
     // Re-request size, but with the newly freed space!
     return this.requestSize(width, height);
+  }
+
+  /** How 'good' a position on the atlas is */
+  public static positionScore(x: number, y: number) {
+    return Math.max(x, y);
   }
 
   /**
@@ -1111,7 +1117,7 @@ export class Texture implements Drawable {
     const newSpot = TextureAtlas.requestSize(
       this.width,
       this.height,
-      this.atlasX + this.atlasY
+      TextureAtlas.positionScore(this.atlasX, this.atlasY)
     );
 
     if (newSpot) {
@@ -1127,6 +1133,7 @@ export class Texture implements Drawable {
       // Register the new position
       Texture.freeListener.register(this, [ this.atlasX, this.atlasY ]);
 
+      // Move the old image to the new position
       TextureAtlas.clearRect(
         this.atlasX, this.atlasY,
         this.width, this.height
