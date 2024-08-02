@@ -1,11 +1,12 @@
 import { Peek } from '../peek';
 import { Texture } from '../resources/Texture';
 import { BlendMode } from '../util/BlendMode';
+import { HasTexture } from '../util/HasTexture';
 import { HitBox } from '../util/HitBox';
 import { PNode } from './PNode';
 
 /** A sprite draws a texture to the screen. */
-export class Sprite extends PNode {
+export class Sprite extends PNode implements HasTexture {
   public texture: Texture | undefined;
   public blendMode: BlendMode = BlendMode.NORMAL;
   public isCentered = true;
