@@ -205,6 +205,7 @@ export class Vec2 {
     this.x = x;
     this.y = y;
   }
+
   /** Copies the values of another vector into this one */
   public setVec(v: Vec2) {
     this.x = v.x;
@@ -212,10 +213,17 @@ export class Vec2 {
   }
 
   /**
-   * Normalizes this vector to be of length 1.
+   * Copies the values of another vector into this one,
+   * multiplying by the given scalar first.
+   */
+  public setVecScalar(v: Vec2, scalar: number) {
+    this.x = v.x * scalar;
+    this.y = v.y * scalar;
+  }
+
+  /**
+   * Normalizes this vector to be of the specified length (1 by default).
    * If the vector is of length 0, it remains that way.
-   * 
-   * Passing a value to the `length` sets the vector's length.
    */
   public normalize(targetLength = 1) {
     const realLength = Math.hypot(this.x, this.y) / targetLength;
@@ -228,6 +236,19 @@ export class Vec2 {
   public round() {
     this.x = Math.round(this.x);
     this.y = Math.round(this.y);
+  }
+
+  /**
+   * Rotates this vector
+   * @param angle The angle (in radians)
+   */
+  public rotate(angle: number) {
+    const cos = Math.cos(angle);
+    const sin = Math.sin(angle);
+    const finalX = this.x * cos + this.y * sin;
+    const finalY = this.y * cos - this.x * sin;
+    this.x = finalX;
+    this.y = finalY;
   }
 
   /** Spreads this vector in a radius around a position */
@@ -346,26 +367,39 @@ export class Vec2 {
   }
 
   /**
-   * Normalizes this vector to be of length 1
-   * If the vector is (0, 0), it remains at (0, 0)
+   * Returns a normalized vector of the specified length (1 by default).
+   * If the vector is of length 0, it remains that way.
    */
-  public normalized() {
-    const len = Math.hypot(this.x, this.y);
-    if (len == 0) return this.copy();
+  public normalized(targetLength = 1) {
+    const realLength = Math.hypot(this.x, this.y) / targetLength;
+    if (realLength == 0) return this.copy();
     return new Vec2(
-      this.x / len,
-      this.y / len
+      this.x / realLength,
+      this.y / realLength
     );
   }
 
   /**
    * Reurns a copy of this vector with its X and Y
-   * components rounded (to the nearest integer)
+   * components rounded to the nearest integer
    */
   public rounded() {
     return new Vec2(
       Math.round(this.x),
       Math.round(this.y)
+    );
+  }
+
+  /**
+   * Returns a rotated copy of this vector
+   * @param angle The angle (in radians)
+   */
+  public rotated(angle: number) {
+    const cos = Math.cos(angle);
+    const sin = Math.sin(angle);
+    return new Vec2(
+      this.x * cos + this.y * sin,
+      this.y * cos - this.x * sin,
     );
   }
 
