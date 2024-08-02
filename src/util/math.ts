@@ -99,6 +99,27 @@ export function interpolateDelta(i: number, delta: number) {
   return 1 - 0.5 ** (i * delta);
 }
 
+// MAPPING
+
+/**
+ * Maps a range of values to another
+ * @param value The value to map
+ * @param fromStart The start of the source range
+ * @param fromEnd The end of the source range
+ * @param toStart The start of the destination range
+ * @param toEnd The end of the destination range
+ */
+export function map(
+  value: number,
+  fromStart: number, fromEnd: number,
+  toStart: number, toEnd: number
+) {
+  return (
+    (value - fromStart) * (toEnd - toStart) /
+    (fromEnd - fromStart) + toStart
+  );
+}
+
 // RANOMNESS
 
 /**
@@ -108,4 +129,12 @@ export function interpolateDelta(i: number, delta: number) {
  */
 export function randomRange(start: number, end: number) {
   return Math.random() * (end - start) + start;
+}
+
+/**
+ * Picks a random item from the given array
+ * @param array
+ */
+export function pickRandom<T>(array: T[]) {
+  return array[~~(Math.random() * array.length)];
 }
