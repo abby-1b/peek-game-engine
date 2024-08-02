@@ -5,8 +5,14 @@ export class Color {
   public static TRANSPARENT = new Color(0, 0).fillStylePreInit();
   public static BLACK = new Color(0).fillStylePreInit();
   public static WHITE = new Color(255).fillStylePreInit();
+  public static DARK_GRAY = new Color(64).fillStylePreInit();
+  public static GRAY = new Color(128).fillStylePreInit();
+  public static LIGHT_GRAY = new Color(192).fillStylePreInit();
   public static RED = new Color(255, 0, 0).fillStylePreInit();
+  public static ORANGE = new Color(255, 128, 0).fillStylePreInit();
+  public static YELLOW = new Color(255, 255, 0).fillStylePreInit();
   public static GREEN = new Color(0, 255, 0).fillStylePreInit();
+  public static AQUA = new Color(0, 255, 255).fillStylePreInit();
   public static BLUE = new Color(0, 0, 255).fillStylePreInit();
 
   // Color properties
