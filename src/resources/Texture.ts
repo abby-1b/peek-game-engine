@@ -112,7 +112,6 @@ class TextureAtlasMain {
         if (moreOptimizedThan !== undefined) {
           const optimization = this.positionScore(rect.x, rect.y);
           if (optimization >= moreOptimizedThan) continue;
-          console.log(this.freeRects.length);
         }
 
         // Found a suitable rectangle!
@@ -917,6 +916,13 @@ export class Texture implements Drawable {
     return newTexture;
   }
 
+  /** Fills this texture completely with the given color */
+  public fill(color: Color) {
+    TextureAtlas.clearRect(this.atlasX, this.atlasY, this.width, this.height);
+    TextureAtlas.atlasColor(color);
+    TextureAtlas.fillRect(this.atlasX, this.atlasY, this.width, this.height);
+  }
+
   /** Sets a pixel within the texture */
   public setPixel(x: number, y: number, color: Color) {
     TextureAtlas.setPixel(x + this.atlasX, y + this.atlasY, color);
@@ -1160,6 +1166,22 @@ export function atlasCleanup() {
 /** Sets the atlas color! */
 export function atlasColor(color: Color) {
   TextureAtlas.atlasColor(color);
+}
+
+/**
+ * Returns arguments to use in a full `drawImage` call.
+ * 
+ * (eg. `ctx.drawImage(...atlasSource(texture), 0, 0, width, height)`)
+ * @param texture 
+ * @returns 
+ */
+export function atlasSource(texture: Texture) {
+  return [
+    TextureAtlas.atlasCanvas,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (texture as any).atlasX, (texture as any).atlasY,
+    texture.width, texture.height
+  ] as const;
 }
 
 window.TextureAtlas = TextureAtlas;
