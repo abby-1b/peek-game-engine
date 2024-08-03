@@ -127,6 +127,8 @@ class TextureAtlasMain {
         // This is done as a replace to keep the array better sorted.
         this.freeRects.splice(i, 1, ...newRects);
 
+        this.sortRects();
+
         // Add the rect to the used rects!
         this.usedRects.push(retRect);
 
@@ -372,26 +374,20 @@ class TextureAtlasMain {
         }
 
       }
-
-      // Sort (bubble)
-      const rb = this.freeRects[this.cleanupIndex + 1];
-      if (ra && rb && rb.x + rb.y < ra.x + ra.y) {
-        // If the further-ahead rectangle is closer to (0, 0), swap it
-        didModify = true;
-        [
-          this.freeRects[this.cleanupIndex],
-          this.freeRects[this.cleanupIndex + 1]
-        ] = [
-          this.freeRects[this.cleanupIndex + 1],
-          this.freeRects[this.cleanupIndex]
-        ];
-      }
     }
 
     if (didModify) {
+      this.sortRects();
       this.lastSwapFrame = Peek.frameCount;
     }
 
+  }
+
+  /** Sorts the `freeRects` array completely */
+  private static sortRects() {
+    this.freeRects.sort(
+      (a, b) => this.positionScore(a.x, a.y) - this.positionScore(b.x, b.y)
+    );
   }
 
   /**
@@ -792,6 +788,33 @@ export class Texture implements Drawable {
     Texture.freeListener.register(this, [ this.atlasX, this.atlasY ]);
   }
 
+  /** Manually frees this texture. This is kept private to avoid issues! */
+  private free() {
+    Texture.freeListener.unregister(this);
+    TextureAtlas.freePos([ this.atlasX, this.atlasY ]);
+  }
+
+  /** Swaps the texture data of two textures, including their GC data. */
+  private static swapTexturePointers(a: Texture, b: Texture) {
+    this.freeListener.unregister(a);
+    this.freeListener.unregister(b);
+    [
+      b.atlasX, a.atlasX,
+      b.atlasY, a.atlasY,
+      (b as { width: number }).width,
+      (a as { width: number }).width,
+      (b as { height: number }).height,
+      (a as { height: number }).height,
+    ] = [
+      a.atlasX, b.atlasX,
+      a.atlasY, b.atlasY,
+      a.width, b.width,
+      a.height, b.height,
+    ];
+    this.freeListener.register(a, [ a.width, a.height ]);
+    this.freeListener.register(b, [ b.width, b.height ]);
+  }
+
   /** Loads a texture from the file manager, given a path */
   private static load(
     path: string,
@@ -819,9 +842,7 @@ export class Texture implements Drawable {
     return tex;
   }
 
-  /**
-   * Preloads a texture from the file manager, given a path
-   */
+  /** Preloads a texture from the file manager, given a path */
   public static async preload(path: string): Promise<Texture> {
     return new Promise((resolve, reject) => {
       const tex = this.load(path, s => s
@@ -836,11 +857,12 @@ export class Texture implements Drawable {
    * texture rotated to the specified angle.
    * @param texture The texture to rotate
    * @param angle The rotation angle (in radians)
-   * @param keepSize Whether or not the size should be preserved
+   * @param keepSize Keeps the size constant
    */
   public static rotated(
     texture: Texture,
     angle: number,
+    keepSize = false
   ): Texture {
     const c = Math.cos(angle);
     const s = Math.sin(angle);
@@ -848,8 +870,12 @@ export class Texture implements Drawable {
     const sourceW = texture.width;
     const sourceH = texture.height;
 
-    const finalW = Math.round(Math.abs(sourceH * s) + Math.abs(sourceW * c));
-    const finalH = Math.round(Math.abs(sourceH * c) + Math.abs(sourceW * s));
+    const finalW = keepSize
+      ? sourceW
+      : Math.round(Math.abs(sourceH * s) + Math.abs(sourceW * c));
+    const finalH = keepSize
+      ? sourceH
+      : Math.round(Math.abs(sourceH * c) + Math.abs(sourceW * s));
 
     // Create the new texture
     const out = new Texture(finalW, finalH);
@@ -900,6 +926,55 @@ export class Texture implements Drawable {
     }
 
     TextureAtlas.putRawImageData(out.atlasX, out.atlasY, outImageData);
+    return out;
+  }
+
+  /**
+   * Applies a tint to a texture. Returns a copy of the
+   * texture tinted with the specified color.
+   * @param color The color to multiply each pixel by
+   * @returns The modified texture
+   */
+  public static tinted(
+    texture: Texture,
+    color: Color
+  ) {
+    const { width, height } = texture;
+
+    // Create the new texture
+    const out = new Texture(width, height);
+
+    // Clip
+    TextureAtlas.stateSave();
+    TextureAtlas.clip(out.atlasX, out.atlasY, width, height);
+
+    // Preserve color (no black/desaturated edges)
+    TextureAtlas.atlasBlendMode(BlendMode.LUMINOSITY);
+    TextureAtlas.putImagePortion(
+      texture.atlasX, texture.atlasY, width, height,
+      out.atlasX, out.atlasY
+    );
+    TextureAtlas.atlasBlendMode(BlendMode.COLOR);
+    TextureAtlas.putImagePortion(
+      texture.atlasX, texture.atlasY, width, height,
+      out.atlasX, out.atlasY
+    );
+
+    // Actually apply tint
+    TextureAtlas.atlasBlendMode(BlendMode.MULTIPLY);
+    TextureAtlas.atlasColor(color);
+    TextureAtlas.fillRect(out.atlasX, out.atlasY, width, height);
+
+    // Re-gain alpha
+    TextureAtlas.atlasBlendMode(BlendMode.DEST_IN);
+    TextureAtlas.putImagePortion(
+      texture.atlasX, texture.atlasY, width, height,
+      out.atlasX, out.atlasY
+    );
+    // TextureAtlas.atlasBlendMode(BlendMode.NORMAL);
+
+    TextureAtlas.stateRestore();
+
     return out;
   }
 
@@ -1030,8 +1105,8 @@ export class Texture implements Drawable {
   /** Masks a transparent circle on this texture. */
   public maskCircle(antialias: boolean = false, feather: number = 1): this {
     // Calculate the mask...
-    const cx = this.width / 2 + 0.25;
-    const cy = this.height / 2 + 0.25;
+    const cx = this.width / 2;
+    const cy = this.height / 2;
     const blurRadius = (antialias ? (1 - feather / cx) : 1) ** 2;
     const m = 1 / (1 - blurRadius);
 
@@ -1055,51 +1130,27 @@ export class Texture implements Drawable {
   }
 
   /**
-   * Applies a tint to this texture. This modifies the texture,
-   * and is a slow method.
+   * Applies a tint to this texture.
    * @param color The color to multiply each pixel by
    * @returns The modified texture
    */
   public tint(color: Color): this {
-    // Store the original texture somewhere else
-    const tempPos = TextureAtlas.requestSize(this.width, this.height);
-    TextureAtlas.putImagePortion(
-      this.atlasX, this.atlasY, this.width, this.height,
-      tempPos.x, tempPos.y
-    );
+    const newTexture = Texture.tinted(this, color);
+    Texture.swapTexturePointers(this, newTexture);
+    newTexture.free();
+    return this;
+  }
 
-    // Clip
-    TextureAtlas.stateSave();
-    TextureAtlas.clip(this.atlasX, this.atlasY, this.width, this.height);
-
-    TextureAtlas.atlasBlendMode(BlendMode.LUMINOSITY);
-    TextureAtlas.putImagePortion(
-      tempPos.x, tempPos.y, tempPos.w, tempPos.h,
-      this.atlasX, this.atlasY
-    );
-    
-    TextureAtlas.atlasBlendMode(BlendMode.COLOR);
-    TextureAtlas.putImagePortion(
-      tempPos.x, tempPos.y, tempPos.w, tempPos.h,
-      this.atlasX, this.atlasY
-    );
-
-    TextureAtlas.atlasBlendMode(BlendMode.MULTIPLY);
-    TextureAtlas.atlasColor(color);
-    TextureAtlas.fillRect(this.atlasX, this.atlasY, this.width, this.height);
-
-    TextureAtlas.atlasBlendMode(BlendMode.DEST_IN);
-    TextureAtlas.putImagePortion(
-      tempPos.x, tempPos.y, tempPos.w, tempPos.h,
-      this.atlasX, this.atlasY
-    );
-    // TextureAtlas.atlasBlendMode(BlendMode.NORMAL);
-
-    TextureAtlas.stateRestore();
-
-    // Release the temporary texture
-    TextureAtlas.freePos([ tempPos.x, tempPos.y ]);
-
+  /**
+   * Rotates this texture.
+   * @param angle The angle to rotate the texture by
+   * @param keepSize Keeps the size constant
+   * @returns The modified texture
+   */
+  public rotate(angle: number, keepSize = false): this {
+    const newTexture = Texture.rotated(this, angle, keepSize);
+    Texture.swapTexturePointers(this, newTexture);
+    newTexture.free();
     return this;
   }
 
@@ -1112,13 +1163,16 @@ export class Texture implements Drawable {
       x, y, width ?? this.width, height ?? this.height,
     );
 
-    if (Math.random() < TEXTURE_OPTIMIZE_CHANCE) {
-      this.tryOptimizeInAtlas();
-    }
+    this.tryOptimizeInAtlas();
   }
 
   /** Tries to move this texture closer to (0, 0) in the atlas. */
-  private tryOptimizeInAtlas() {
+  public tryOptimizeInAtlas() {
+    if (Math.random() > TEXTURE_OPTIMIZE_CHANCE) {
+      // Only optimize sometimes
+      return;
+    }
+
     // Allocate the new space
     const newSpot = TextureAtlas.requestSize(
       this.width,
@@ -1176,6 +1230,7 @@ export function atlasColor(color: Color) {
  * @returns 
  */
 export function atlasSource(texture: Texture) {
+  texture.tryOptimizeInAtlas();
   return [
     TextureAtlas.atlasCanvas,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
