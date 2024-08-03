@@ -314,7 +314,12 @@ class PeekMain {
       }
 
       if (shouldProcessNodes) {
-        // Process the scene...
+        // Process the camera nodes
+        for (const [, ref] of scene.cameras) {
+          ref.deref()?.cameraProcess(delta);
+        }
+
+        // Process the scene nodes
         scene.processCaller(delta);
       }
 
@@ -373,6 +378,15 @@ class PeekMain {
     this.frameCount++;
   }
 
+  /** Gets the currently-loaded scene */
+  public static getScene(): Scene | undefined {
+    const scene = this.scenes[this.loadedSceneID];
+    if (scene === 0) {
+      return undefined;
+    } else {
+      return scene;
+    }
+  }
   /** Loads a scene and switches to it */
   public static loadScene(scene: Scene) {
     // Pre-load the scene, but don't wait for it!
