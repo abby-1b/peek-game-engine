@@ -387,6 +387,7 @@ class PeekMain {
       return scene;
     }
   }
+
   /** Loads a scene and switches to it */
   public static loadScene(scene: Scene) {
     // Pre-load the scene, but don't wait for it!
