@@ -1,5 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
+import { Controller } from '../Control';
+import { MouseButton } from './Mouse';
+
 type GenericCallback = (...args: any[]) => void;
 
 export const enum InputType {
@@ -13,6 +16,12 @@ export const enum ButtonState {
   PRESSED = 1,
 }
 
+export interface ButtonInit {
+  keyboardKeys?: string[],
+  gamePadButtons?: string[],
+  mouseButtons?: MouseButton[],
+}
+
 /** Holds common code for all hardware inputs */
 export class Input {
   private callbackCount = 0;
@@ -21,26 +30,30 @@ export class Input {
   private callbacks: Map<InputType, Set<[ number, WeakRef<GenericCallback> ]>>
     = new Map();
 
-  public pipe(
+  public pipe<T extends Record<string, ButtonInit>>(
     inputType: InputType.Position,
     fn: (x: number, y: number) => void,
-    controllerID: number
+    controller: Controller<T>
   ): void;
-  public pipe(
+  public pipe<T extends Record<string, ButtonInit>>(
     inputType: InputType.Direction,
     fn: (x: number, y: number) => void,
-    controllerID: number
+    controller: Controller<T>
   ): void;
-  public pipe(
+  public pipe<T extends Record<string, ButtonInit>>(
     inputType: InputType.Button,
-    fn: (button: string, state: number) => void,
-    controllerID: number
+    fn: (button: string | number, state: number) => void,
+    controller: Controller<T>
   ): void;
 
   /** Pipes input from the selected input to the given function */
-  public pipe(inputType: InputType, fn: GenericCallback, controllerID: number) {
+  public pipe<T extends Record<string, ButtonInit>>(
+    inputType: InputType,
+    fn: GenericCallback,
+    controller: Controller<T>
+  ) {
     const tuple: [ number, WeakRef<GenericCallback> ] = [
-      controllerID,
+      controller.id,
       new WeakRef(fn)
     ];
     if (this.callbacks.has(inputType)) {
@@ -54,6 +67,8 @@ export class Input {
       this.onInitialize();
     }
     this.callbackCount++;
+
+    controller.callbacks.push(fn);
   }
 
   /** Removes a controller, stopping all its callbacks */
@@ -81,12 +96,14 @@ export class Input {
     inputType: InputType.Direction, x: number, y: number
   ): void;
   protected out(
-    inputType: InputType.Button, data: string, state: number
+    inputType: InputType.Button, data: string | number, state: number
   ): void;
 
   /** Called by the child class when there's an input to handle */
   protected out(inputType: InputType, ...data: any[]) {
-    for (const callback of this.callbacks.get(inputType)!) {
+    const callbacks = this.callbacks.get(inputType);
+    if (!callbacks) { return; }
+    for (const callback of callbacks) {
       callback[1].deref()?.(...data);
     }
   }

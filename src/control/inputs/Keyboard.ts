@@ -7,7 +7,7 @@ export class KeyboardInput extends Input {
   private upListener!: (e: KeyboardEvent) => void;
 
   /** Called when an input is attached to this class */
-  protected onInitialize() {
+  protected override onInitialize() {
     // TODO: add debugger support (check if keyboard is available)
     this.downListener = (e: KeyboardEvent) => {
       this.out(
@@ -28,7 +28,7 @@ export class KeyboardInput extends Input {
   }
 
   /** Called when this input type is no longer needed */
-  protected onDestroy() {
+  protected override onDestroy() {
     console.log('keyboard destroyed!');
     window.removeEventListener('keydown', this.downListener);
     window.removeEventListener('keyup', this.upListener);

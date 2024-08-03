@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { Vec2 } from '../resources/Vec';
-import { InputType } from './inputs/Input';
+import { ButtonInit, ButtonState, InputType } from './inputs/Input';
 import { Keyboard } from './inputs/Keyboard';
 import { Mouse, MouseButton } from './inputs/Mouse';
 
@@ -34,13 +34,7 @@ interface ControllerInit<T extends Record<string, ButtonInit>> {
   buttons?: T
 }
 
-interface ButtonInit {
-  keyboardKeys?: string[],
-  gamePadButtons?: string[],
-  mouseButtons?: MouseButton[],
-}
-
-/** Binds many input types together */
+/** Binds many input types together. */
 export class Controller<T extends Record<string, ButtonInit>>  {
   // STATIC
 
@@ -61,6 +55,19 @@ export class Controller<T extends Record<string, ButtonInit>>  {
   /** A pointer position within the screen (aka a mouse or touch input) */
   public pointer: Vec2 = Vec2.zero();
 
+  private lastDragPos = Vec2.zero();
+  private aggregateDrag = Vec2.zero();
+  private returnDrag = Vec2.zero();
+  /** Gets the change in pointer position since the last call */
+  public drag() {
+    this.returnDrag.setVec(this.aggregateDrag);
+    this.aggregateDrag.set(0, 0);
+    return this.returnDrag;
+  }
+
+  /** Whether or not a pointer is down (touch or left click) */
+  public pointerDown = false;
+
   /**
    * A direction with XY components ranging from [-1, 1].
    * Normalized so its length will not exceed 1.
@@ -69,6 +76,27 @@ export class Controller<T extends Record<string, ButtonInit>>  {
 
   /** A map of buttons and their states */
   public buttons: Record<keyof T, boolean>;
+
+  /** Makes a controller with many input types built-in, pre-setup */
+  public static simple() {
+    return new Controller({
+      pointer: {
+        mouse: true,
+        touch: true
+      },
+      directional: {
+        keyboard: {
+          wasd: true,
+          arrows: true
+        },
+      },
+      buttons: {
+        'action': {
+          keyboardKeys: [ ' ', 'Enter' ]
+        }
+      }
+    });
+  }
 
   /** Sets up a controller */
   public constructor(init: ControllerInit<T>) {
@@ -79,16 +107,29 @@ export class Controller<T extends Record<string, ButtonInit>>  {
     if (init.pointer) {
       if (init.pointer.mouse) {
         // Mouse
-        Mouse.pipe(InputType.Position, this.controllerFn((x, y) => {
+        Mouse.pipe(InputType.Position, (x, y) => {
           this.pointer.set(x, y);
-        }), this.id);
+          if (this.pointerDown) {
+            this.aggregateDrag.add(
+              this.pointer.x - this.lastDragPos.x,
+              this.pointer.y - this.lastDragPos.y
+            );
+            this.lastDragPos.setVec(this.pointer);
+          }
+        }, this);
+        Mouse.pipe(InputType.Button, (button, state) => {
+          if (button == MouseButton.LEFT) {
+            this.lastDragPos.setVec(this.pointer);
+            this.pointerDown = state == ButtonState.PRESSED;
+          }
+        }, this);
       }
 
       if (init.pointer.touch) {
         // Touch
         // Touch.pipe(InputType.Position, (x, y) => {
-        //   This.pointer.set(x, y);
-        // }, this.id);
+        //   this.pointer.set(x, y);
+        // }, this);
       }
     }
 
@@ -113,7 +154,7 @@ export class Controller<T extends Record<string, ButtonInit>>  {
         const pressed = [ 0, 0, 0, 0 ];
         Keyboard.pipe(
           InputType.Button,
-          this.controllerFn((button: string, state: number) => {
+          (button: string | number, state: number) => {
             if (!(button in directionals)) return;
             pressed[directionals[button]] = state;
             this.direction.set(
@@ -123,8 +164,8 @@ export class Controller<T extends Record<string, ButtonInit>>  {
             if (this.direction.length() > 1) {
               this.direction.normalize();
             }
-          }),
-          this.id
+          },
+          this
         );
       }
       // If (init.directional.gamepad) {
@@ -139,56 +180,21 @@ export class Controller<T extends Record<string, ButtonInit>>  {
     // Const gamePadButtonMappings: Record<string, string> = {};
     
     this.buttons = {} as Record<keyof T, boolean>;
-    for (const buttonName in (init.buttons ?? {})) {
-      // Initialize pressed state to false
-      (this.buttons as any)[buttonName] = false;
-
-      const buttonInit = init.buttons![buttonName];
-      buttonInit.keyboardKeys
-        ?.forEach(k => keyboardButtonMappings[k] = buttonName);
+    if (init.buttons) {
+      for (const buttonName in init.buttons) {
+        // Initialize pressed state to false
+        this.buttons[buttonName] = false;
+  
+        const buttonInit = init.buttons![buttonName];
+        buttonInit.keyboardKeys
+          ?.forEach(k => keyboardButtonMappings[k] = buttonName);
+      }
     }
 
     Controller.finalizationRegistry.register(this, this.id);
   }
 
 
-  private callbacks: Array<(...args: any[]) => any> = [];
-
-  /** Stores a callback in this class, so it can get garbage collected */
-  private controllerFn(fn: (...args: any[]) => any) {
-    this.callbacks.push(fn);
-    return fn;
-  }
-}
-
-/** Used to interface with mouse, keyboard, touch, and controllers */
-export class Control {
-  /** Adds a controller */
-  public static addController<T extends Record<string, ButtonInit>>(
-    controllerInit: ControllerInit<T>
-  ): Controller<T> {
-    const controller = new Controller(controllerInit);
-    return controller;
-  }
-
-  /** Adds a controller with many input types built-in */
-  public static simpleAddController() {
-    return this.addController({
-      pointer: {
-        mouse: true,
-        touch: true
-      },
-      directional: {
-        keyboard: {
-          wasd: true,
-          arrows: true
-        },
-      },
-      buttons: {
-        'action': {
-          keyboardKeys: [ ' ' ]
-        }
-      }
-    });
-  }
+  /** An array of callbacks, stored here so they don't get garbage collected. */
+  public callbacks: Array<(...args: any[]) => any> = [];
 }
