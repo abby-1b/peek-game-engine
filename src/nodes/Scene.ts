@@ -10,7 +10,7 @@ export class Scene extends PNode {
   private static currSceneID = 0;
   public readonly sceneID: number;
 
-  public cameras: WeakRef<Camera>[] = [];
+  public cameras: Map<number, WeakRef<Camera>> = new Map();
 
   /** Instantiates a scene */
   public constructor() {
@@ -23,14 +23,11 @@ export class Scene extends PNode {
    * If no camera is found, this is `undefined`.
    */
   public getCamera(): Camera | undefined {
-    let index = -1;
-    for (const cameraRef of this.cameras) {
-      index++;
-
-      const camera = cameraRef.deref();
+    for (const [id, ref] of this.cameras) {
+      const camera = ref.deref();
       if (!camera) {
         // Remove this camera from the list
-        this.cameras.splice(index, 1);
+        this.cameras.delete(id);
         continue;
       }
 
