@@ -1,16 +1,16 @@
 import { pickRandom, randomRange } from '../util/math';
-import { Color } from './Color';
+import { Color, ColorGen, ColorGradient, ColorList } from './Color';
 import { atlasColor, Texture } from './Texture';
 
 interface BitNoiseData {
-  colors: Color[],
+  colors: ColorGen,
   mirrorX?: boolean,
   mirrorY?: boolean,
 }
 
 interface SplatterData {
   backgroundColor?: Color,
-  colors?: Color[],
+  colors?: ColorGen,
   splatterCount?: number,
   widthRange?: [number, number],
   heightRange?: [number, number],
@@ -27,9 +27,9 @@ export class Gen {
     data?: BitNoiseData
   ) {
     // Get the colors that the image will have
-    const colors = data && data.colors && data.colors.length > 0
+    const colors = data && data.colors
       ? data.colors
-      : [ Color.BLACK, Color.WHITE ];
+      : new ColorGradient([ Color.BLACK, Color.WHITE ]);
     
     // Make the texture
     const tex = new Texture(width, height);
@@ -37,8 +37,7 @@ export class Gen {
     // Fill it with random colors (from the array)
     for (let x = 0; x < width; x++) {
       for (let y = 0; y < height; y++) {
-        const colIdx = Math.floor(Math.random() * colors.length);
-        tex.setPixel(x, y, colors[colIdx]);
+        tex.setPixel(x, y, colors.gen());
       }
     }
     
@@ -62,7 +61,7 @@ export class Gen {
     const rectCount = data?.splatterCount ?? (width * height / (2 * avgArea));
 
     // Get the drawing colors
-    const colors = data?.colors ?? [ Color.WHITE ];
+    const colors = data?.colors ?? new ColorList([ Color.WHITE ]);
 
     // Make the texture
     const tex = new Texture(width, height);
@@ -76,7 +75,7 @@ export class Gen {
       const x = ~~randomRange(0, width - w);
       const y = ~~randomRange(0, height - h);
 
-      atlasColor(pickRandom(colors));
+      atlasColor(colors.gen());
       tex.fillRect(x, y, w, h);
     }
 
