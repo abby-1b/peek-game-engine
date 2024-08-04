@@ -1,3 +1,4 @@
+import { lerp, pickRandom } from '../util/math';
 
 /** A color defined as RGBA, with values from 0-255 */
 export class Color {
@@ -16,10 +17,10 @@ export class Color {
   public static BLUE = new Color(0, 0, 255).fillStylePreInit();
 
   // Color properties
-  private red: number;
-  private green: number;
-  private blue: number;
-  private alpha: number;
+  public readonly red: number;
+  public readonly green: number;
+  public readonly blue: number;
+  public readonly alpha: number;
 
   // Cache the `fillStyle` string
   private fillStyleCache?: string;
@@ -110,3 +111,68 @@ export class Color {
     );
   }
 }
+
+/** Generates random colors with some given parameters */
+export interface ColorGen {
+  /** Generates the color */
+  gen(): Color
+}
+
+/** A list of colors */
+export class ColorList implements ColorGen {
+  /** Creates a ColorList */
+  public constructor(private list: Color[]) {}
+
+  /**
+   * Picks a color from the list
+   * @param value A number from 0 to 1. 0 is the first color and 1 the last
+   */
+  public pick(value: number): Color;
+  
+  /**
+   * Picks a color from the list
+   * @param value The index of the number to pick
+   * @param integer Switches `value` from (0, 1) to (0, len)
+   */
+  public pick(value: number, integer: true): Color;
+
+  /** Picks a color from the list */
+  public pick(value: number, integer = false) {
+    if (integer) {
+      return this.list[value];
+    } else {
+      return this.list[~~(value * this.list.length)];
+    }
+  }
+
+  /** Picks a random color from the list */
+  public gen() { return pickRandom(this.list); }
+}
+
+/** A smooth, linearly-interpolated gradient of colors */
+export class ColorGradient implements ColorGen {
+  /** Creates a ColorGradient */
+  public constructor(private list: Color[]) {}
+
+  /** Picks a color from the gradient, given a number from 0 to 1 */
+  public pick(value: number) {
+    const idx = value * (this.list.length - 1);
+    const lowIdx = Math.floor(idx);
+    const hiIdx = Math.ceil(idx);
+    if (lowIdx == idx) {
+      return this.list[idx];
+    } else {
+      const i = idx - lowIdx;
+      return new Color(
+        lerp(this.list[lowIdx].red  , this.list[hiIdx].red  , i),
+        lerp(this.list[lowIdx].green, this.list[hiIdx].green, i),
+        lerp(this.list[lowIdx].blue , this.list[hiIdx].blue , i),
+        lerp(this.list[lowIdx].alpha, this.list[hiIdx].alpha, i),
+      );
+    }
+  }
+
+  /** Picks a random color from the gradient */
+  public gen() { return this.pick(Math.random()); }
+}
+
