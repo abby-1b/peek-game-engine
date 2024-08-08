@@ -17,22 +17,26 @@ export class DynamicBody extends StaticBody {
   /** The friction coefficient, initialized when the node is created. */
   public friction = DynamicBody.baseFriction;
 
-  // Used for calculating physics...
-  public newPosChange: Vec2 = Vec2.zero();
-  public newVelChange: Vec2 = Vec2.zero();
+  // // Used for calculating physics...
+  // public newPosChange: Vec2 = Vec2.zero();
+  // public newVelChange: Vec2 = Vec2.zero();
 
   /**
    * Deals with the dynamic body's physics. When overriding the process method,
    * make sure to call `super.process()` if you want physics to work!
    */
   protected override process(delta: number): void {
-    this.velocity.subVec(this.velocity.mulScalarRet(1 - 0.5 ** (this.friction * delta)));
+    this.velocity.subVec(
+      this.velocity.mulScalarRet(1 - 0.5 ** (this.friction * delta))
+    );
     this.velocity.addVec(this.acceleration.mulScalarRet(0.5 * delta));
 
     this.pos.addVec(this.velocity.mulScalarRet(delta));
     // this.pos.addVec(this.acceleration.mulScalarRet(0.5 * delta ** 2));
     
-    this.velocity.subVec(this.velocity.mulScalarRet(1 - 0.5 ** (this.friction * delta)));
+    this.velocity.subVec(
+      this.velocity.mulScalarRet(1 - 0.5 ** (this.friction * delta))
+    );
     this.velocity.addVec(this.acceleration.mulScalarRet(0.5 * delta));
   }
 

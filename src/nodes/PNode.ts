@@ -1,6 +1,6 @@
 import { Peek } from '../peek';
 import { Vec2 } from '../resources/Vec';
-import { HitBox } from '../util/HitBox';
+import { HitBox, pointIsInHitbox, SquareBox } from '../resources/HitBox';
 
 /** Something that can be displayed on the screen */
 export class PNode {
@@ -25,7 +25,12 @@ export class PNode {
   public constructor() {}
 
   /** This node's children */
-  public children: PNode[] = [];
+  private children: PNode[] = [];
+
+  /** Gets this node's children */
+  public getChildren(): ReadonlyArray<PNode> {
+    return this.children;
+  }
 
   /** Keeps track of if this node's preload function was already called */
   private isPreloaded: boolean = false;
@@ -48,17 +53,21 @@ export class PNode {
   /** Gets this node's hitbox. */
   public getHitbox(
     integer: boolean,
-    xOffset: number = 0,
-    yOffset: number = 0,
-    overrideW: number = 0,
-    overrideH: number = 0
+    hitBoxObj?: HitBox
   ): HitBox {
     // Get the starting position
-    const ret = {
-      x: this.pos.x + xOffset,
-      y: this.pos.y + yOffset,
-      w: overrideW, h: overrideH
-    };
+    let ret;
+    if (hitBoxObj) {
+      ret = hitBoxObj;
+      hitBoxObj.x = this.pos.x;
+      hitBoxObj.y = this.pos.y;
+    } else {
+      ret = new SquareBox(
+        this.pos.x,
+        this.pos.y,
+        0, 0
+      );
+    }
     
     // Add parent transforms
     let parent = this.parent;
@@ -66,6 +75,12 @@ export class PNode {
       ret.x += parent.pos.x;
       ret.y += parent.pos.y;
       parent = parent.parent;
+    }
+
+    // Center square hitboxes
+    if (ret instanceof SquareBox) {
+      ret.x -= ret.w * 0.5;
+      ret.y -= ret.h * 0.5;
     }
     
     // Round
@@ -149,6 +164,13 @@ export class PNode {
     return this.remove(...this.children.filter((c, i) => indices.includes(i)));
   }
 
+  /** Removes this node from its parent. */
+  public removeSelf() {
+    if (this.parent) {
+      this.parent.remove(this);
+    }
+  }
+
   /**
    * Ran when this node is "moved". Moving includes being 
    * added to a scene, being removed from a scene, or 
@@ -217,6 +239,7 @@ export class PNode {
 
     // Call *this* preload function after the children are loaded
     this.ready();
+    this.isReady = true;
   }
 
   /**

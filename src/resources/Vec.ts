@@ -349,6 +349,11 @@ export class Vec2 {
     return this.x == v.x && this.y == v.y;
   }
 
+  /** Gets the dot product between two vectors */
+  public dot(v: Vec2) {
+    return this.x * v.x + this.y * v.y;
+  }
+
   // FETCHING
 
   /** Gets the length of this vector */

@@ -1,16 +1,18 @@
 import { Peek } from '../peek';
+import { SquareBox } from '../resources/HitBox';
 import { Texture } from '../resources/Texture';
 import { BlendMode } from '../util/BlendMode';
 import { HasTexture } from '../util/HasTexture';
-import { HitBox } from '../util/HitBox';
+import { HitBox } from '../resources/HitBox';
 import { PNode } from './PNode';
 
 /** A sprite draws a texture to the screen. */
 export class Sprite extends PNode implements HasTexture {
   public texture: Texture | undefined;
   public blendMode: BlendMode = BlendMode.NORMAL;
-  public isCentered = true;
   public scale = 1;
+
+  protected hitBox = new SquareBox(0, 0, 0, 0);
 
   /** Sets the texture for this sprite */
   public setTexture(texture: Texture): this {
@@ -24,15 +26,6 @@ export class Sprite extends PNode implements HasTexture {
     return this;
   }
 
-  /**
-   * Changes whether this sprite displays with the origin at the center,
-   * or the top-left.
-   */
-  public setCentered(isCentered: boolean): this {
-    this.isCentered = isCentered;
-    return this;
-  }
-
   /** Draws this Sprite */
   protected override draw() {
     // Don't draw if there's no texture
@@ -43,10 +36,10 @@ export class Sprite extends PNode implements HasTexture {
 
     // Draw the texture
     this.texture.draw(
-      this.isCentered ? Math.floor(this.scale * -this.texture.width  / 2) : 0,
-      this.isCentered ? Math.floor(this.scale * -this.texture.height / 2) : 0,
-      this.scale * this.texture.width!,
-      this.scale * this.texture.height!,
+      Math.floor(this.scale * -this.texture.getWidth()  / 2),
+      Math.floor(this.scale * -this.texture.getHeight() / 2),
+      this.scale * this.texture.getWidth()!,
+      this.scale * this.texture.getHeight()!,
     );
 
     Peek.ctx.globalCompositeOperation = BlendMode.NORMAL;
@@ -56,14 +49,8 @@ export class Sprite extends PNode implements HasTexture {
   public override getHitbox(
     integer: boolean,
   ): HitBox {
-    const tw = this.scale * (this.texture?.width ?? 0);
-    const th = this.scale * (this.texture?.height ?? 0);
-    return super.getHitbox(
-      integer,
-      Math.floor(this.isCentered ? Math.floor(-tw / 2) : 0),
-      Math.floor(this.isCentered ? Math.floor(-th / 2) : 0),
-      tw,
-      th,
-    );
+    this.hitBox.w = this.scale * (this.texture?.getWidth() ?? 0);
+    this.hitBox.h = this.scale * (this.texture?.getHeight() ?? 0);
+    return super.getHitbox(integer, this.hitBox);
   }
 }
