@@ -17,10 +17,16 @@ interface SingleParticle {
  * ran a maximum of around 84,000 particles without dropping under 60 fps.
  */
 export class Particles extends PNode {
+  /** All the particles */
   private particles: Set<SingleParticle> = new Set();
 
+  /** An offset applied to particles before they're rendered */
+  public offset = Vec2.zero();
+
+  /** The gravity applied to particles each processing frame */
   public gravity: Vec2 = new Vec2(0, 0.1);
 
+  /** The particle's color */
   public color: Color = Color.WHITE;
 
   /** Animates the particles */
@@ -50,16 +56,19 @@ export class Particles extends PNode {
     sizeEnd: number,
     color: Color,
     lifetime: number,
+    count: number
   ): void {
-    this.particles.add({
-      x: position[0], y: position[1],
-      xVel: velocity[0] + (Math.random() - 0.5) * 2.0 * velocityVariation[0],
-      yVel: velocity[1] + (Math.random() - 0.5) * 2.0 * velocityVariation[1],
-      sizeBegin, sizeEnd,
-      color,
-      maxLifetime: lifetime,
-      currLifetime: 0
-    });
+    for (let i = 0; i < count; i++) {
+      this.particles.add({
+        x: position[0], y: position[1],
+        xVel: velocity[0] + (Math.random() - 0.5) * 2.0 * velocityVariation[0],
+        yVel: velocity[1] + (Math.random() - 0.5) * 2.0 * velocityVariation[1],
+        sizeBegin, sizeEnd,
+        color,
+        maxLifetime: lifetime,
+        currLifetime: 0
+      });
+    }
   }
 
   /**
@@ -75,17 +84,16 @@ export class Particles extends PNode {
     color: Color = Color.WHITE,
     count: number = 2
   ) {
-    for (let c = 0; c < count; c++) {
-      this.emit(
-        position,
-        [ 0, 0 ],
-        [ speed, speed ],
-        3,
-        0.6,
-        color,
-        40
-      );
-    }
+    this.emit(
+      position,
+      [ 0, 0 ],
+      [ speed, speed ],
+      3,
+      0.6,
+      color,
+      40,
+      count
+    );
   }
 
   /** Draws the particles */
@@ -94,10 +102,10 @@ export class Particles extends PNode {
     for (const p of this.particles) {
       const lifetime = p.currLifetime / p.maxLifetime;
 
-      const sz = Math.round(lerp(p.sizeBegin, p.sizeEnd, lifetime));
+      const sz = Math.ceil(lerp(p.sizeBegin, p.sizeEnd, lifetime));
       Peek.ctx.fillRect(
-        Math.floor(p.x - sz / 2),
-        Math.floor(p.y - sz / 2),
+        Math.floor(p.x - sz / 2 + this.offset.x),
+        Math.floor(p.y - sz / 2 + this.offset.y),
         sz, sz
       );
     }
