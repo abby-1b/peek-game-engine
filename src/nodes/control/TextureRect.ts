@@ -6,7 +6,7 @@ import { ControlNode } from './ControlNode';
 
 /** A textured rectangle */
 export class TextureRect extends ControlNode implements HasTexture {
-  private texture: Texture | undefined;
+  // private texture: Texture | undefined;
   private pattern: CanvasPattern | null | undefined;
 
   /** How much the texture is offset from the top-left of the rect */
@@ -22,16 +22,19 @@ export class TextureRect extends ControlNode implements HasTexture {
    * @returns 
    */
   public setTexture(texture: Texture): this {
-    this.texture = texture;
+    // this.texture = texture;
     
     // Create an intermediate canvas
     const intermediateCanvas = new OffscreenCanvas(
-      texture.width, texture.height
+      texture.getWidth(), texture.getHeight()
     );
     const ctx = intermediateCanvas.getContext('2d')!;
 
     // Put the texture into the canvas
-    ctx.drawImage(...atlasSource(texture), 0, 0, texture.width, texture.height);
+    ctx.drawImage(
+      ...atlasSource(texture),
+      0, 0, texture.getWidth(), texture.getHeight()
+    );
 
     this.pattern = Peek.ctx.createPattern(intermediateCanvas, 'repeat');
     return this;

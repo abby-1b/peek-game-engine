@@ -45,7 +45,11 @@ class PeekMain {
   private static canvas: HTMLCanvasElement;
 
   /** The rendering context! */
-  public static ctx: CanvasRenderingContext2D;
+  public static ctx: CanvasRenderingContext2D & {
+    webkitImageSmoothingEnabled?: boolean,
+    mozImageSmoothingEnabled   ?: boolean,
+    imageSmoothingEnabled      ?: boolean,
+  };
 
   // SCENE
 
@@ -196,12 +200,9 @@ class PeekMain {
 
     // Setup the context
     this.ctx = this.canvas.getContext('2d', { alpha: false })!;
-    (this.ctx as unknown as { webkitImageSmoothingEnabled: boolean })
-      .webkitImageSmoothingEnabled = false;
-    (this.ctx as unknown as { mozImageSmoothingEnabled   : boolean })
-      .mozImageSmoothingEnabled = false;
-    (this.ctx as unknown as { imageSmoothingEnabled      : boolean })
-      .imageSmoothingEnabled = false;
+    this.ctx.webkitImageSmoothingEnabled = false;
+    this.ctx.mozImageSmoothingEnabled = false;
+    this.ctx.imageSmoothingEnabled = false;
     this.singlePixelImageData = this.ctx.createImageData(1, 1);
 
     if (options.startupScene) {
@@ -228,7 +229,7 @@ class PeekMain {
     Peek.lastFrameTime = nowTime;
 
     // Call the frame function
-    Peek.frame(Peek.smoothDelta > 5 ? 5 : Peek.smoothDelta);
+    Peek.frame(Peek.smoothDelta > 3 ? 3 : Peek.smoothDelta);
 
     // Start the next frame (recursive)
     window.requestAnimationFrame(Peek.frameCallback);
@@ -464,10 +465,53 @@ class PeekMain {
     this.ctx.rect(
       Math.floor(x) + 0.5,
       Math.floor(y) + 0.5,
-      width - 1,
-      height - 1
+      ~~width - 1,
+      ~~height - 1
     );
     this.ctx.stroke();
+  }
+
+  /** Draws a centered circle at the given position. */
+  public static circle(x: number, y: number, radius: number) {
+    [this.ctx.fillStyle, this.ctx.strokeStyle] =
+      [this.ctx.strokeStyle, this.ctx.fillStyle];
+    
+    x = Math.floor(x);
+    y = Math.floor(y);
+    radius = ~~radius;
+
+    let last = radius - 1;
+    for (let p = 0; p < radius; p++) {
+      const f = p / (radius - 1);
+      const h = ~~(Math.sqrt(1 - f ** 2) * radius);
+      const colHeight = (last - h) || 1;
+
+      this.fillRect(
+        x + p,
+        y + h,
+        1, colHeight
+      );
+      this.fillRect(
+        x + p,
+        y - h,
+        1, -colHeight
+      );
+      this.fillRect(
+        x - p,
+        y + h,
+        1, colHeight
+      );
+      this.fillRect(
+        x - p,
+        y - h,
+        1, -colHeight
+      );
+
+      last = h;
+    }
+
+    [this.ctx.fillStyle, this.ctx.strokeStyle] =
+      [this.ctx.strokeStyle, this.ctx.fillStyle];
   }
 
   /**

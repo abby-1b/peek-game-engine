@@ -30,7 +30,11 @@ class TextureAtlasMain {
   /** The atlas itself! */
   public static atlasCanvas: OffscreenCanvas | HTMLCanvasElement;
   private static atlas:
-    OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D;
+    (OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D) & {
+      webkitImageSmoothingEnabled?: boolean,
+      mozImageSmoothingEnabled   ?: boolean,
+      imageSmoothingEnabled      ?: boolean,
+    };
   private static singlePixelImageData: ImageData;
 
   /**
@@ -71,12 +75,9 @@ class TextureAtlasMain {
       */
       // willReadFrequently: true
     })!;
-    (this.atlas as unknown as { webkitImageSmoothingEnabled: boolean })
-      .webkitImageSmoothingEnabled = false;
-    (this.atlas as unknown as { mozImageSmoothingEnabled   : boolean })
-      .mozImageSmoothingEnabled = false;
-    (this.atlas as unknown as { imageSmoothingEnabled      : boolean })
-      .imageSmoothingEnabled = false;
+    this.atlas.webkitImageSmoothingEnabled = false;
+    this.atlas.mozImageSmoothingEnabled = false;
+    this.atlas.imageSmoothingEnabled = false;
     this.atlas.imageSmoothingQuality = 'low';
     this.singlePixelImageData = this.atlas.createImageData(1, 1);
   }
@@ -525,6 +526,21 @@ class TextureAtlasMain {
     );
   }
 
+  /** Puts a portion of an image into the atlas at a given position and size. */
+  public static putImagePortionScaled(
+    sourceX: number, sourceY: number,
+    sourceW: number, sourceH: number,
+    destinationX: number, destinationY: number,
+    destinationW: number, destinationH: number,
+    image: CanvasImageSource = this.atlasCanvas
+  ) {
+    this.atlas.drawImage(
+      image,
+      sourceX, sourceY, sourceW, sourceH,
+      destinationX, destinationY, destinationW, destinationH
+    );
+  }
+
   /** Draws an image (rotated around its center) inside a given texture */
   public static drawRotated(
     sourceX: number, sourceY: number,
@@ -533,12 +549,9 @@ class TextureAtlasMain {
     destinationW: number, destinationH: number,
     angle: number
   ) {
-    (this.atlas as unknown as { webkitImageSmoothingEnabled: boolean })
-      .webkitImageSmoothingEnabled = false;
-    (this.atlas as unknown as { mozImageSmoothingEnabled   : boolean })
-      .mozImageSmoothingEnabled = false;
-    (this.atlas as unknown as { imageSmoothingEnabled      : boolean })
-      .imageSmoothingEnabled = false;
+    this.atlas.webkitImageSmoothingEnabled = false;
+    this.atlas.mozImageSmoothingEnabled = false;
+    this.atlas.imageSmoothingEnabled = false;
     
     this.atlas.save();
     this.atlas.translate(
@@ -635,6 +648,43 @@ class TextureAtlasMain {
       height - 1
     );
     this.atlas.stroke();
+  }
+
+  /** Draws a centered circle at the given position. */
+  public static circle(x: number, y: number, radius: number) {
+    x = Math.floor(x);
+    y = Math.floor(y);
+    radius = ~~radius;
+
+    let last = radius - 1;
+    for (let p = 0; p < radius; p++) {
+      const f = p / (radius - 1);
+      const h = ~~(Math.sqrt(1 - f ** 2) * radius);
+      const colHeight = (last - h) || 1;
+
+      this.fillRect(
+        x + p,
+        y + h,
+        1, colHeight
+      );
+      this.fillRect(
+        x + p,
+        y - h,
+        1, -colHeight
+      );
+      this.fillRect(
+        x - p,
+        y + h,
+        1, colHeight
+      );
+      this.fillRect(
+        x - p,
+        y - h,
+        1, -colHeight
+      );
+
+      last = h;
+    }
   }
 
   /**
@@ -745,13 +795,24 @@ export class Texture implements Drawable {
   public readonly textureId: number;
 
   /** The width of this texture */
-  public readonly width!: number;
+  private width!: number;
   /** The height of this texture */
-  public readonly height!: number;
+  private height!: number;
+
+  /** Gets the width of this texture */
+  public getWidth() { return this.width; }
+  /** Gets the height of this texture */
+  public getHeight() { return this.height; }
 
   // Atlas position
   private atlasX!: number;
   private atlasY!: number;
+
+  /** Gets the atlas X position of this texture */
+  public getAtlasX() { return this.atlasX; }
+  /** Gets the atlas Y position of this texture */
+  public getAtlasY() { return this.atlasY; }
+
 
   /**
    * Makes a new texture object, which points to the texture atlas.
@@ -776,8 +837,8 @@ export class Texture implements Drawable {
   /** Sets the size of this texture, making sure it gets freed after its use. */
   private setSize(width: number, height: number) {
     // TODO: debugger (ensure `this.width` and `this.height` are -1)
-    (this as { width : number }).width  = width;
-    (this as { height: number }).height = height;
+    this.width  = width;
+    this.height = height;
 
     // Set the texture's atlas position
     const atlasRect = TextureAtlas.requestSize(width, height);
@@ -785,7 +846,7 @@ export class Texture implements Drawable {
     this.atlasY = atlasRect.y;
 
     // Add this texture to the garbage collection listener
-    Texture.freeListener.register(this, [ this.atlasX, this.atlasY ]);
+    Texture.freeListener.register(this, [ this.atlasX, this.atlasY ], this);
   }
 
   /** Manually frees this texture. This is kept private to avoid issues! */
@@ -801,18 +862,18 @@ export class Texture implements Drawable {
     [
       b.atlasX, a.atlasX,
       b.atlasY, a.atlasY,
-      (b as { width: number }).width,
-      (a as { width: number }).width,
-      (b as { height: number }).height,
-      (a as { height: number }).height,
+      b.width,
+      a.width,
+      b.height,
+      a.height,
     ] = [
       a.atlasX, b.atlasX,
       a.atlasY, b.atlasY,
       a.width, b.width,
       a.height, b.height,
     ];
-    this.freeListener.register(a, [ a.width, a.height ]);
-    this.freeListener.register(b, [ b.width, b.height ]);
+    this.freeListener.register(a, [ a.atlasX, a.atlasY ], a);
+    this.freeListener.register(b, [ b.atlasX, b.atlasY ], b);
   }
 
   /** Loads a texture from the file manager, given a path */
@@ -932,6 +993,7 @@ export class Texture implements Drawable {
   /**
    * Applies a tint to a texture. Returns a copy of the
    * texture tinted with the specified color.
+   * @param texture The texture to tint
    * @param color The color to multiply each pixel by
    * @returns The modified texture
    */
@@ -979,11 +1041,73 @@ export class Texture implements Drawable {
   }
 
   /**
+   * Resizes a texture. Returns a copy of the
+   * texture resized to the new size.
+   * @param texture The texture to resize
+   * @param newWidth The new width of the texture
+   * @param newHeight The new height of the texture
+   * @returns The modified texture
+   */
+  public static resized(
+    texture: Texture,
+    newWidth: number,
+    newHeight: number,
+  ) {
+    newWidth = ~~newWidth;
+    newHeight = ~~newHeight;
+
+    // Create the new texture
+    const out = new Texture(newWidth, newHeight);
+    
+    // out.fill(Color.TRANSPARENT);
+    // TextureAtlas.putImagePortionScaled(
+    //   texture.atlasX, texture.atlasY,
+    //   texture.width, texture.height,
+    //   out.atlasX, out.atlasY,
+    //   newWidth, newHeight
+    // );
+    // return out;
+
+    // Store imageData arrays (for faster reading & writing)
+    const sourceData = TextureAtlas.getRawImageData(
+      texture.atlasX, texture.atlasY,
+      texture.width, texture.height
+    ).data;
+    const outImageData = new ImageData(newWidth, newHeight);
+    const outPixels = outImageData.data;
+
+    const sourceW = texture.width;
+    const sourceH = texture.height;
+    const widthScale = sourceW / newWidth;
+    const heightScale = sourceH / newHeight;
+
+    for (let x = 0; x < newWidth; x++) {
+      for (let y = 0; y < newHeight; y++) {
+
+        const sourceX = ~~(x * widthScale);
+        const sourceY = ~~(y * heightScale);
+
+        // Put the source pixel in the destination texture
+        const sourceIdx = (sourceX + sourceY * sourceW) * 4;
+        outPixels[(x + y * newWidth) * 4    ] = sourceData[sourceIdx    ];
+        outPixels[(x + y * newWidth) * 4 + 1] = sourceData[sourceIdx + 1];
+        outPixels[(x + y * newWidth) * 4 + 2] = sourceData[sourceIdx + 2];
+        outPixels[(x + y * newWidth) * 4 + 3] = sourceData[sourceIdx + 3];
+      }
+    }
+
+    TextureAtlas.putRawImageData(out.atlasX, out.atlasY, outImageData);
+
+    return out;
+  }
+
+  /**
    * Clones this texture, allocating it in a new spot in the texture atlas.
    * Modifying the clone will not modify the original, as it's a copy.
    */
   public clone() {
     const newTexture = new Texture(this.width, this.height);
+    newTexture.fill(Color.TRANSPARENT);
     TextureAtlas.putImagePortion(
       this.atlasX, this.atlasY, this.width, this.height,
       newTexture.atlasX, newTexture.atlasY
@@ -995,7 +1119,9 @@ export class Texture implements Drawable {
   public fill(color: Color) {
     TextureAtlas.clearRect(this.atlasX, this.atlasY, this.width, this.height);
     TextureAtlas.atlasColor(color);
-    TextureAtlas.fillRect(this.atlasX, this.atlasY, this.width, this.height);
+    if (color.alpha != 0) {
+      TextureAtlas.fillRect(this.atlasX, this.atlasY, this.width, this.height);
+    }
   }
 
   /** Sets a pixel within the texture */
@@ -1043,6 +1169,11 @@ export class Texture implements Drawable {
       x + this.atlasX, y + this.atlasY,
       width, height
     );
+  }
+
+  /** Draws a centered circle at the given position. */
+  public circle(x: number, y: number, radius: number) {
+    TextureAtlas.circle(this.atlasX + x, this.atlasY + y, radius);
   }
 
   /**
@@ -1153,6 +1284,19 @@ export class Texture implements Drawable {
     newTexture.free();
     return this;
   }
+  
+  /**
+   * Resizes this texture
+   * @param newWidth The new width of the texture
+   * @param newHeight The new height of the texture
+   * @returns The modified texture
+   */
+  public resize(newWidth: number, newHeight: number): this {
+    const newTexture = Texture.resized(this, newWidth, newHeight);
+    Texture.swapTexturePointers(this, newTexture);
+    newTexture.free();
+    return this;
+  }
 
   /** Draws this texture to a specific position */
   public draw(x: number, y: number, width?: number, height?: number) {
@@ -1163,7 +1307,7 @@ export class Texture implements Drawable {
       x, y, width ?? this.width, height ?? this.height,
     );
 
-    this.tryOptimizeInAtlas();
+    // this.tryOptimizeInAtlas();
   }
 
   /** Tries to move this texture closer to (0, 0) in the atlas. */
@@ -1191,7 +1335,7 @@ export class Texture implements Drawable {
       this.atlasY = newSpot.y;
 
       // Register the new position
-      Texture.freeListener.register(this, [ this.atlasX, this.atlasY ]);
+      Texture.freeListener.register(this, [ this.atlasX, this.atlasY ], this);
 
       // Move the old image to the new position
       TextureAtlas.clearRect(
@@ -1229,14 +1373,18 @@ export function atlasColor(color: Color) {
  * @param texture 
  * @returns 
  */
-export function atlasSource(texture: Texture) {
+export function atlasSource(texture: Texture): [
+  HTMLCanvasElement | OffscreenCanvas,
+  number, number,
+  number, number
+] {
   texture.tryOptimizeInAtlas();
   return [
     TextureAtlas.atlasCanvas,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (texture as any).atlasX, (texture as any).atlasY,
-    texture.width, texture.height
-  ] as const;
+    texture.getAtlasX(), texture.getAtlasY(),
+    texture.getWidth(), texture.getHeight()
+  ];
 }
 
 window.TextureAtlas = TextureAtlas;
