@@ -73,7 +73,7 @@ export class Camera extends PNode {
       parent = parent.parent;
       if (parent == undefined) { return; }
     }
-    this.parentScene = parent as Scene;
+    this.parentScene = parent;
     
     // Add this camera to the scene's list
     this.parentScene.cameras.set(this.id, new WeakRef(this));
@@ -135,6 +135,33 @@ export class Camera extends PNode {
     this.shakeAmount *= 0.9;
     this.shakeX = (Math.random() - 0.5) * this.shakeAmount;
     this.shakeY = (Math.random() - 0.5) * this.shakeAmount;
+  }
+
+  /** Converts screen-space to world-space coordinates given a vector */
+  public screenToWorld(v: Vec2): Vec2;
+  
+  /** Converts screen-space to world-space coordinates given an XY position */
+  public screenToWorld(x: number, y: number): Vec2;
+
+  /** Converts screen-space to world-space coordinates */
+  public screenToWorld(a: number | Vec2, b?: number): Vec2 {
+    const out = Vec2.zero();
+
+    if (a instanceof Vec2) {
+      // Vector
+      out.setVec(a);
+    } else {
+      // Numbers (XY position)
+      out.set(a, b!);
+    }
+
+    // Transform the vector from screen-space to world-space
+    out.add(
+      this.x + this.shakeX - Peek.screenWidth  * 0.5,
+      this.y + this.shakeY - Peek.screenHeight * 0.5,
+    );
+
+    return out;
   }
 
   /**
