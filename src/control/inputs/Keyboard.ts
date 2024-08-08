@@ -3,8 +3,8 @@ import { ButtonState, Input, InputType } from './Input';
 
 /** Handles all keyboard inputs */
 export class KeyboardInput extends Input {
-  private downListener!: (e: KeyboardEvent) => void;
-  private upListener!: (e: KeyboardEvent) => void;
+  private downListener?: (e: KeyboardEvent) => void;
+  private upListener?: (e: KeyboardEvent) => void;
 
   /** Called when an input is attached to this class */
   protected override onInitialize() {
@@ -30,10 +30,10 @@ export class KeyboardInput extends Input {
   /** Called when this input type is no longer needed */
   protected override onDestroy() {
     console.log('keyboard destroyed!');
-    window.removeEventListener('keydown', this.downListener);
-    window.removeEventListener('keyup', this.upListener);
-    (this.downListener as any) = undefined;
-    (this.upListener as any) = undefined;
+    window.removeEventListener('keydown', this.downListener!);
+    window.removeEventListener('keyup', this.upListener!);
+    this.downListener = undefined;
+    this.upListener = undefined;
   }
 }
 export const Keyboard = new KeyboardInput();

@@ -34,6 +34,8 @@ interface ControllerInit<T extends Record<string, ButtonInit>> {
   buttons?: T
 }
 
+type ButtonCallback = () => void;
+
 /** Binds many input types together. */
 export class Controller<T extends Record<string, ButtonInit>>  {
   // STATIC
@@ -76,6 +78,9 @@ export class Controller<T extends Record<string, ButtonInit>>  {
 
   /** A map of buttons and their states */
   public buttons: Record<keyof T, boolean>;
+  
+  /** Callbacks for when a button is pressed. */
+  private buttonCallbacks: Record<string, ButtonCallback[]> = {};
 
   /** Makes a controller with many input types built-in, pre-setup */
   public static simple() {
@@ -120,6 +125,7 @@ export class Controller<T extends Record<string, ButtonInit>>  {
         Mouse.pipe(InputType.Button, (button, state) => {
           if (button == MouseButton.LEFT) {
             this.lastDragPos.setVec(this.pointer);
+            this.triggerButton('pointer', state);
             this.pointerDown = state == ButtonState.PRESSED;
           }
         }, this);
@@ -140,7 +146,7 @@ export class Controller<T extends Record<string, ButtonInit>>  {
         const wasd = 'wasd';
         const arrows = [ 'ArrowUp', 'ArrowLeft', 'ArrowDown', 'ArrowRight' ];
         for (const idx of [ 0, 1, 2, 3 ]) {
-          const direction = (['up', 'down', 'left', 'right'] as const)[idx];
+          const direction = ([ 'up', 'down', 'left', 'right' ] as const)[idx];
           if (init.directional.keyboard.wasd) directionals[wasd[idx]] = idx;
           if (init.directional.keyboard.arrows) directionals[arrows[idx]] = idx;
           if (init.directional.keyboard.custom?.[direction]) {
@@ -176,7 +182,7 @@ export class Controller<T extends Record<string, ButtonInit>>  {
     }
 
     // Initialize buttons states
-    const keyboardButtonMappings: Record<string, string> = {};
+    const keyboardButtonMappings: Record<string, keyof T> = {};
     // Const gamePadButtonMappings: Record<string, string> = {};
     
     this.buttons = {} as Record<keyof T, boolean>;
@@ -191,9 +197,75 @@ export class Controller<T extends Record<string, ButtonInit>>  {
       }
     }
 
+    Keyboard.pipe(
+      InputType.Button,
+      (button: string | number, state: ButtonState) => {
+        if (button in keyboardButtonMappings) {
+          const buttonName = keyboardButtonMappings[button];
+          this.triggerButton(buttonName as string, state);
+          this.buttons[buttonName] =
+            state == ButtonState.PRESSED;
+        }
+      },
+      this
+    );
+
     Controller.finalizationRegistry.register(this, this.id);
   }
 
+  /** Runs when a button is pressed/released */
+  private triggerButton(buttonName: string, state: ButtonState) {
+    if (state == ButtonState.PRESSED) {
+      this.buttonCallbacks[buttonName]?.forEach(c => c());
+    }
+  }
+
+  /**
+   * Adds a callback that runs when a button is pressed
+   * @param buttonName The name of the button to add the callback
+   * @param callback The callback
+   */
+  public onPress(
+    buttonName: string,
+    callback: ButtonCallback
+  ) {
+    if (!(buttonName in this.buttonCallbacks)) {
+      this.buttonCallbacks[buttonName] = [ callback ];
+    } else {
+      this.buttonCallbacks[buttonName].push(callback);
+    }
+  }
+
+  /**
+   * Removes a button callback. If no callback is passed, all callbacks for that
+   * button are removed. If the callback was added multiple times, only the
+   * first instance will be removed (this might change in the future).
+   * @param buttonName The name of the button to remove callbacks for
+   * @param callback The callback to remove
+   */
+  public removeOnPress(
+    buttonName: string,
+    callback?: ButtonCallback
+  ) {
+    if (!(buttonName in this.buttonCallbacks)) {
+      // There is no callback...
+      return;
+    }
+
+    if (callback) {
+      // Find the callback index...
+      const callbacks = this.buttonCallbacks[buttonName];
+      const idx = callbacks.indexOf(callback);
+      
+      // Remove the callback
+      if (idx !== -1) {
+        callbacks.splice(idx, 1);
+      }
+    } else {
+      // Remove all callbacks!
+      delete this.buttonCallbacks[buttonName];
+    }
+  }
 
   /** An array of callbacks, stored here so they don't get garbage collected. */
   public callbacks: Array<(...args: any[]) => any> = [];

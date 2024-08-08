@@ -12,9 +12,9 @@ export const enum MouseButton {
 
 /** Handles all mouse inputs */
 class MouseInput extends Input {
-  private positionListener!: (e: MouseEvent) => void;
-  private downListener!: (e: MouseEvent) => void;
-  private upListener!: (e: MouseEvent) => void;
+  private positionListener?: (e: MouseEvent) => void;
+  private downListener?: (e: MouseEvent) => void;
+  private upListener?: (e: MouseEvent) => void;
 
   /** Called when an input is attached to this class */
   protected override onInitialize() {
@@ -38,12 +38,12 @@ class MouseInput extends Input {
 
   /** Called when this input type is no longer needed */
   protected override onDestroy() {
-    window.removeEventListener('mousemove', this.positionListener);
-    window.removeEventListener('mousedown', this.downListener);
-    window.removeEventListener('mouseup', this.upListener);
-    (this.positionListener as any) = undefined;
-    (this.downListener     as any) = undefined;
-    (this.upListener       as any) = undefined;
+    window.removeEventListener('mousemove', this.positionListener!);
+    window.removeEventListener('mousedown', this.downListener!);
+    window.removeEventListener('mouseup', this.upListener!);
+    this.positionListener = undefined;
+    this.downListener = undefined;
+    this.upListener = undefined;
   }
 }
 export const Mouse = new MouseInput();
