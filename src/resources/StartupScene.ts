@@ -4,7 +4,7 @@ import { Scene } from '../nodes/Scene';
 import { Sprite } from '../nodes/Sprite';
 import { Peek } from '../peek';
 import { BlendMode } from '../util/BlendMode';
-import { Color } from './Color';
+import { Color, ColorList } from './Color';
 import { Gen } from './Gen';
 import { Texture } from './Texture';
 
@@ -49,7 +49,7 @@ export class StartupScene extends Scene {
     );
     
     // Add the particles
-    const particleColor = new Color(20);
+    const particleColor = new ColorList([ new Color(20), Color.TRANSPARENT ]);
     const particleSize = 6;
     const particleCount = 32;
     for (let i = 0; i < particleCount; i++) {
@@ -57,7 +57,7 @@ export class StartupScene extends Scene {
         .setBlendMode(BlendMode.SUBTRACT)
         .setTexture(
           Gen.bitNoise(particleSize, particleSize, {
-            colors: [ particleColor, Color.TRANSPARENT ]
+            colors: particleColor
           })
             .maskCircle(true)
         );
