@@ -99,7 +99,7 @@ export abstract class ControlNode extends PNode {
       if (parent.controlProperties!.positionChildren) {
         // Children need to be positioned
         let totalSize = 0;
-        for (const child of parent.children) {
+        for (const child of parent.getChildren()) {
           if (!(child instanceof ControlNode)) { continue; }
   
           parent.controlProperties!.childCount++;
