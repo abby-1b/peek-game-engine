@@ -92,6 +92,50 @@ export class PNode {
     return ret;
   }
 
+  /**
+   * Gets a single node at a given position, searching breadth-first
+   * @param pos The position (world-space) to check at
+   * @returns The found node, if any
+   */
+  public getNodeAt(pos: Vec2): PNode | undefined {
+    return this.getNodesAt(pos, 1)[0];
+  }
+
+  /**
+   * Gets nodes at a given position, searching breadth-first.
+   * Keep in mind that this might return an empty array!
+   * @param pos The position (world-space) to check at
+   * @param count The number of nodes to retrieve
+   * @returns The list of found nodes
+   */
+  public getNodesAt(
+    pos: Vec2,
+    count: number
+  ): PNode[] {
+    const hits: PNode[] = [];
+
+    const queue: PNode[] = [ this ];
+    while (queue.length > 0) {
+      const node = queue.shift()!;
+
+      // Check if it falls within the position
+      if (pointIsInHitbox(pos, node.getHitbox(false))) {
+        hits.push(node);
+      }
+
+      if (hits.length == count) {
+        break;
+      }
+
+      // Add its children to the queue
+      queue.push(...node.getChildren());
+    }
+
+    console.log(queue.length);
+
+    return hits;
+  }
+
   // CHILD METHODS
   
   /** Adds children to this node */
