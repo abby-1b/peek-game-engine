@@ -354,6 +354,16 @@ export class Vec2 {
     return this.x * v.x + this.y * v.y;
   }
 
+  /** Gets the distance from this vector to another */
+  public distanceTo(v: Vec2) {
+    return Math.hypot(this.x - v.x, this.y - v.y);
+  }
+  
+  /** Gets the distance from this vector to another */
+  public distanceSquaredTo(v: Vec2) {
+    return (this.x - v.x) ** 2 + (this.y - v.y) ** 2;
+  }
+
   // FETCHING
 
   /** Gets the length of this vector */
