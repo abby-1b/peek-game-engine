@@ -69,24 +69,24 @@ export function hitboxOverlaps(hba: HitBox, hbb: HitBox) {
   if (hba instanceof SquareBox && hbb instanceof SquareBox) {
     return (
       hba.x < hbb.x + hbb.w &&
-			hba.x + hba.w > hbb.x &&
-			hba.y < hbb.y + hbb.h &&
-			hba.y + hba.h > hbb.y
+      hba.x + hba.w > hbb.x &&
+      hba.y < hbb.y + hbb.h &&
+      hba.y + hba.h > hbb.y
     );
   } else if (hba instanceof SquareBox && hbb instanceof CircleBox) {
     return (
       (Math.max(hba.x, Math.min(hbb.x, hba.x + hba.w)) - hbb.x) ** 2 +
-			(Math.max(hba.y, Math.min(hbb.y, hba.y + hba.h)) - hbb.y) ** 2
+      (Math.max(hba.y, Math.min(hbb.y, hba.y + hba.h)) - hbb.y) ** 2
     ) <= hbb.r ** 2;
   } else if (hba instanceof CircleBox && hbb instanceof SquareBox) {
     return (
       (Math.max(hbb.x, Math.min(hba.x, hbb.x + hbb.w)) - hba.x) +
-			(Math.max(hbb.y, Math.min(hba.y, hbb.y + hbb.h)) - hba.y)
+      (Math.max(hbb.y, Math.min(hba.y, hbb.y + hbb.h)) - hba.y)
     ) <= hba.r ** 2;
   } else if (hba instanceof CircleBox && hbb instanceof CircleBox) {
     return (
       (hba.x - hbb.x) ** 2 +
-			(hba.y - hbb.y) ** 2
+      (hba.y - hbb.y) ** 2
     ) <= (hba.r + hbb.r) ** 2;
   }
 }
