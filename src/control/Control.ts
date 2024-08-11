@@ -80,7 +80,8 @@ export class Controller<T extends Record<string, ButtonInit>>  {
   public buttons: Record<keyof T, boolean>;
   
   /** Callbacks for when a button is pressed. */
-  private buttonCallbacks: Record<string, ButtonCallback[]> = {};
+  private buttonDownCallbacks: Record<string, ButtonCallback[]> = {};
+  private buttonUpCallbacks: Record<string, ButtonCallback[]> = {};
 
   /** Makes a controller with many input types built-in, pre-setup */
   public static simple() {
@@ -216,7 +217,9 @@ export class Controller<T extends Record<string, ButtonInit>>  {
   /** Runs when a button is pressed/released */
   private triggerButton(buttonName: string, state: ButtonState) {
     if (state == ButtonState.PRESSED) {
-      this.buttonCallbacks[buttonName]?.forEach(c => c());
+      this.buttonDownCallbacks[buttonName]?.forEach(c => c());
+    } else if (state == ButtonState.UNPRESSED) {
+      this.buttonUpCallbacks[buttonName]?.forEach(c => c());
     }
   }
 
@@ -229,10 +232,26 @@ export class Controller<T extends Record<string, ButtonInit>>  {
     buttonName: string,
     callback: ButtonCallback
   ) {
-    if (!(buttonName in this.buttonCallbacks)) {
-      this.buttonCallbacks[buttonName] = [ callback ];
+    if (!(buttonName in this.buttonDownCallbacks)) {
+      this.buttonDownCallbacks[buttonName] = [ callback ];
     } else {
-      this.buttonCallbacks[buttonName].push(callback);
+      this.buttonDownCallbacks[buttonName].push(callback);
+    }
+  }
+  
+  /**
+   * Adds a callback that runs when a button is released
+   * @param buttonName The name of the button to add the callback
+   * @param callback The callback
+   */
+  public onRelease(
+    buttonName: string,
+    callback: ButtonCallback
+  ) {
+    if (!(buttonName in this.buttonUpCallbacks)) {
+      this.buttonUpCallbacks[buttonName] = [ callback ];
+    } else {
+      this.buttonUpCallbacks[buttonName].push(callback);
     }
   }
 
@@ -247,14 +266,14 @@ export class Controller<T extends Record<string, ButtonInit>>  {
     buttonName: string,
     callback?: ButtonCallback
   ) {
-    if (!(buttonName in this.buttonCallbacks)) {
+    if (!(buttonName in this.buttonDownCallbacks)) {
       // There is no callback...
       return;
     }
 
     if (callback) {
       // Find the callback index...
-      const callbacks = this.buttonCallbacks[buttonName];
+      const callbacks = this.buttonDownCallbacks[buttonName];
       const idx = callbacks.indexOf(callback);
       
       // Remove the callback
@@ -263,7 +282,38 @@ export class Controller<T extends Record<string, ButtonInit>>  {
       }
     } else {
       // Remove all callbacks!
-      delete this.buttonCallbacks[buttonName];
+      delete this.buttonDownCallbacks[buttonName];
+    }
+  }
+  
+  /**
+   * Removes a button callback. If no callback is passed, all callbacks for that
+   * button are removed. If the callback was added multiple times, only the
+   * first instance will be removed (this might change in the future).
+   * @param buttonName The name of the button to remove callbacks for
+   * @param callback The callback to remove
+   */
+  public removeOnRelease(
+    buttonName: string,
+    callback?: ButtonCallback
+  ) {
+    if (!(buttonName in this.buttonUpCallbacks)) {
+      // There is no callback...
+      return;
+    }
+
+    if (callback) {
+      // Find the callback index...
+      const callbacks = this.buttonUpCallbacks[buttonName];
+      const idx = callbacks.indexOf(callback);
+      
+      // Remove the callback
+      if (idx !== -1) {
+        callbacks.splice(idx, 1);
+      }
+    } else {
+      // Remove all callbacks!
+      delete this.buttonUpCallbacks[buttonName];
     }
   }
 
