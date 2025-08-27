@@ -3,8 +3,9 @@ import { PNode } from './PNode';
 
 /**
  * Scenes are nodes that can preload their children. They also keep track of
- * their scene ID, which is a unique identifier assigned to each scene. Keep in 
- * mind that scene IDs are sequential, not assigned randomly.
+ * their scene ID, which is a unique identifier assigned to each scene.
+ * 
+ * NOTE: scene IDs are sequential, not assigned randomly.
  */
 export class Scene extends PNode {
   private static currSceneID = 0;
@@ -23,7 +24,7 @@ export class Scene extends PNode {
    * If no camera is found, this is `undefined`.
    */
   public getCamera(): Camera | undefined {
-    for (const [id, ref] of this.cameras) {
+    for (const [ id, ref ] of this.cameras) {
       const camera = ref.deref();
       if (!camera) {
         // Remove this camera from the list

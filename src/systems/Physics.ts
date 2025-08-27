@@ -7,7 +7,6 @@ import { Vec2 } from '../resources/Vec';
 
 const maxFrames = 100;
 const ft: number[] = [];
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 
 type Resolvable = { resolveVec?: Vec2, resolveCount?: number };
 
@@ -21,7 +20,7 @@ export class Physics extends System {
     super();
 
     Signal.listenVirtual('Physics', 'movedNode', (object: StaticBody) => {
-      if (object.parent == undefined) {
+      if (object.parent === undefined) {
         this.removeObject(object);
       } else {
         this.addObject(object);
@@ -71,7 +70,7 @@ export class Physics extends System {
 
     for (const objA of this.dynamicObjects) {
       for (const objB of this.objects) {
-        if (objA.bodyId == objB.bodyId) { continue; }
+        if (objA.bodyId === objB.bodyId) { continue; }
 
         const hba = objA.hitBox;
         const hbb = objB.hitBox;
@@ -127,8 +126,22 @@ export class Physics extends System {
           const penetrationDepth = dist.length() - hbb.r;
           dist.normalize(penetrationDepth);
           objA.resolveVec!.addVec(dist);
+        } else if (hba instanceof CircleBox && hbb instanceof SquareBox) {
+          // TODO: test that this works correctly
+          const nearestX = Math.max(hbb.x, Math.min(hba.x, hbb.x + hbb.w));
+          const nearestY = Math.max(hbb.y, Math.min(hba.y, hbb.y + hbb.h));
+          const dist = new Vec2(hba.x - nearestX, hba.y - nearestY);
+
+          const penetrationDepth = dist.length() - hba.r;
+          dist.normalize(penetrationDepth);
+          objA.resolveVec!.addVec(dist);
+        } else if (hba instanceof CircleBox && hbb instanceof CircleBox) {
+          const dist = new Vec2(hba.x - hbb.x, hba.y - hbb.y);
+          const penetrationDepth = dist.length() - (hba.r + hbb.r);
+          dist.normalize(-penetrationDepth);
+          objA.resolveVec!.addVec(dist);
         } else {
-          // TODO: Circle-Square & Circle-Circle collision resolution
+          throw new Error('Unsupported hitbox types in collision resolution');
         }
         objA.resolveCount!++;
 
@@ -163,10 +176,10 @@ export class Physics extends System {
     }
     ft.push(time);
 
-    let avg = 0;
-    for (const t of ft) {
-      avg += t;
-    }
+    // let avg = 0;
+    // for (const t of ft) {
+    //   avg += t;
+    // }
     // console.log(avg / ft.length);
   }
 }

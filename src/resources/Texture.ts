@@ -1,6 +1,6 @@
 import { Peek } from '../peek';
 import { BlendMode } from '../util/BlendMode';
-import { Drawable } from '../util/Drawable';
+import { DrawReadable, DrawWriteable } from '../util/Drawable';
 import { Color } from './Color';
 
 const ATLAS_STARTUP_SIZE = 32;
@@ -25,12 +25,17 @@ const enum AtlasTouch {
   Y
 }
 
+type AtlasCanvas =
+  OffscreenCanvas | HTMLCanvasElement;
+type AtlasContext =
+  OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D;
+
 /** A texture atlas holds sets of textures. */
 class TextureAtlasMain {
   /** The atlas itself! */
-  public static atlasCanvas: OffscreenCanvas | HTMLCanvasElement;
-  private static atlas:
-    (OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D) & {
+  public static atlasCanvas: AtlasCanvas;
+  public static atlas:
+    AtlasContext & {
       webkitImageSmoothingEnabled?: boolean,
       mozImageSmoothingEnabled   ?: boolean,
       imageSmoothingEnabled      ?: boolean,
@@ -201,8 +206,8 @@ class TextureAtlasMain {
     removeWidth: number,
     removeHeight: number,
   ): AtlasRect[] {
-    if (removeWidth == areaRect.w) {
-      if (removeHeight == areaRect.h) {
+    if (removeWidth === areaRect.w) {
+      if (removeHeight === areaRect.h) {
         // If both are equal, we have a perfect match (no remaining space)
         return [];
       }
@@ -214,7 +219,7 @@ class TextureAtlasMain {
         w: removeWidth,
         h: areaRect.h - removeHeight,
       }];
-    } else if (removeHeight == areaRect.h) {
+    } else if (removeHeight === areaRect.h) {
       // The height touches the bottom edge! Return the right-side rect
       return [{
         x: areaRect.x + removeWidth,
@@ -280,7 +285,7 @@ class TextureAtlasMain {
   public static freePos(pos: AtlasPos) {
     for (let i = 0; i < this.usedRects.length; i++) {
       const rect = this.usedRects[i];
-      if (rect.x == pos[0] && rect.y == pos[1]) {
+      if (rect.x === pos[0] && rect.y === pos[1]) {
         // Found the rect!
         this.freeRects.push(rect); // Add it to the free rects
         this.usedRects.splice(i, 1); // Remove it from the used rects
@@ -322,28 +327,28 @@ class TextureAtlasMain {
 
         // Full merges (two corners touching)
         if (
-          ra.x == rb.x && // Left side
-          ra.w == rb.w    // Right side
+          ra.x === rb.x && // Left side
+          ra.w === rb.w    // Right side
         ) {
-          if (ra.y + ra.h == rb.y) {
+          if (ra.y + ra.h === rb.y) {
             // `ra` on top of `rb`
             ra.h += rb.h;
             rbRemoved = true;
-          } else if (ra.y == rb.y + rb.h) {
+          } else if (ra.y === rb.y + rb.h) {
             // `rb` on top of `ra`
             ra.y = rb.y;
             ra.h += rb.h;
             rbRemoved = true;
           }
         } else if (
-          ra.y == rb.y && // Top side
-          ra.h == rb.h    // Bottom side
+          ra.y === rb.y && // Top side
+          ra.h === rb.h    // Bottom side
         ) {
-          if (ra.x + ra.w == rb.x) {
+          if (ra.x + ra.w === rb.x) {
             // `ra` left of `rb`
             ra.w += rb.w;
             rbRemoved = true;
-          } else if (ra.x == rb.x + rb.w) {
+          } else if (ra.x === rb.x + rb.w) {
             // `rb` left of `ra`
             ra.x = rb.x;
             ra.w += rb.w;
@@ -355,13 +360,13 @@ class TextureAtlasMain {
           // Single-edge flips (one corner touching, no removes)
 
           if (
-            (ra.y + ra.h == rb.y || ra.y == rb.y + rb.h) &&
-            (ra.x == rb.x || ra.x + ra.w == rb.x + rb.w)
+            (ra.y + ra.h === rb.y || ra.y === rb.y + rb.h) &&
+            (ra.x === rb.x || ra.x + ra.w === rb.x + rb.w)
           ) {
             this.tryFlipRects(ra, rb, AtlasTouch.Y);
           } else if (
-            (ra.x + ra.w == rb.x || ra.x == rb.x + rb.w) &&
-            ((ra.y == rb.y || ra.y + ra.h == rb.y + rb.h))
+            (ra.x + ra.w === rb.x || ra.x === rb.x + rb.w) &&
+            ((ra.y === rb.y || ra.y + ra.h === rb.y + rb.h))
           ) {
             this.tryFlipRects(ra, rb, AtlasTouch.X);
           }
@@ -402,13 +407,13 @@ class TextureAtlasMain {
   ) {
     // Swap so `ra` is top-left
     if (
-      (touchSide == AtlasTouch.X && ra.x > rb.x) ||
-      (touchSide == AtlasTouch.Y && ra.y > rb.y)
+      (touchSide === AtlasTouch.X && ra.x > rb.x) ||
+      (touchSide === AtlasTouch.Y && ra.y > rb.y)
     ) { [ra, rb] = [rb, ra]; }
 
-    if (touchSide == AtlasTouch.X) {
+    if (touchSide === AtlasTouch.X) {
       // Touching on X-facing edge, `ra` on left
-      if (ra.y == rb.y) {
+      if (ra.y === rb.y) {
         // Top edge aligned
         
         if (ra.h > rb.h) {
@@ -449,7 +454,7 @@ class TextureAtlasMain {
       }
     } else {
       // Touching on Y-facing edge, `ra` on top
-      if (ra.x == rb.x) {
+      if (ra.x === rb.x) {
         // Left edge aligned
 
         if (ra.w > rb.w) {
@@ -500,7 +505,6 @@ class TextureAtlasMain {
 
   /** Sets the blend mode on the atlas. Make sure to set it back to normal! */
   public static atlasBlendMode(blendMode: BlendMode) {
-    // TODO: this
     this.atlas.globalCompositeOperation = blendMode;
   }
 
@@ -509,6 +513,7 @@ class TextureAtlasMain {
     x: number, y: number,
     image: CanvasImageSource = this.atlasCanvas
   ) {
+    // TODO: deprecate
     this.atlas.drawImage(image, x, y);
   }
 
@@ -519,6 +524,7 @@ class TextureAtlasMain {
     destinationX: number, destinationY: number,
     image: CanvasImageSource = this.atlasCanvas
   ) {
+    // TODO: deprecate
     this.atlas.drawImage(
       image,
       sourceX, sourceY, sourceW, sourceH,
@@ -634,13 +640,21 @@ class TextureAtlasMain {
   }
 
   /** Draws a filled rectangle given the top left point, width, and height. */
-  public static fillRect(x: number, y: number, width: number, height: number) {
+  public static fillRect(
+    x: number, y: number, width: number, height: number,
+    color: Color
+  ) {
+    this.atlas.fillStyle = color.fillStyle();
     this.atlas.fillRect(x, y, width, height);
   }
   
   /** Draws a rectangle outline given the top left point, width, and height. */
-  public static rect(x: number, y: number, width: number, height: number) {
+  public static rect(
+    x: number, y: number, width: number, height: number,
+    color: Color
+  ) {
     this.atlas.beginPath();
+    this.atlas.strokeStyle = color.fillStyle();
     this.atlas.rect(
       Math.floor(x) + 0.5,
       Math.floor(y) + 0.5,
@@ -650,11 +664,13 @@ class TextureAtlasMain {
     this.atlas.stroke();
   }
 
-  /** Draws a centered circle at the given position. */
-  public static circle(x: number, y: number, radius: number) {
+  /** Draws a centered circle outline at the given position */
+  public static circle(x: number, y: number, radius: number, color: Color) {
     x = Math.floor(x);
     y = Math.floor(y);
     radius = ~~radius;
+
+    this.atlas.fillStyle = color.fillStyle();
 
     let last = radius - 1;
     for (let p = 0; p < radius; p++) {
@@ -662,22 +678,22 @@ class TextureAtlasMain {
       const h = ~~(Math.sqrt(1 - f ** 2) * radius);
       const colHeight = (last - h) || 1;
 
-      this.fillRect(
+      this.atlas.fillRect(
         x + p,
         y + h,
         1, colHeight
       );
-      this.fillRect(
+      this.atlas.fillRect(
         x + p,
         y - h,
         1, -colHeight
       );
-      this.fillRect(
+      this.atlas.fillRect(
         x - p,
         y + h,
         1, colHeight
       );
-      this.fillRect(
+      this.atlas.fillRect(
         x - p,
         y - h,
         1, -colHeight
@@ -685,6 +701,32 @@ class TextureAtlasMain {
 
       last = h;
     }
+  }
+
+  /** Draws a centered, filled circle at the given position */
+  public static fillCircle(x: number, y: number, radius: number, color: Color) {
+    x = Math.floor(x);
+    y = Math.floor(y);
+    radius = ~~radius;
+
+    this.atlas.fillStyle = color.fillStyle();
+
+    for (let p = 1; p < radius; p++) {
+      const f = p / (radius - 1);
+      const h = ~~(Math.sqrt(1 - f ** 2) * radius);
+
+      this.atlas.fillRect(
+        x + p,
+        y + h,
+        1, -h * 2
+      );
+      this.atlas.fillRect(
+        x - p,
+        y + h,
+        1, -h * 2
+      );
+    }
+    this.atlas.fillRect(x, y - radius, 1, radius * 2);
   }
 
   /**
@@ -729,7 +771,7 @@ class TextureAtlasMain {
       incrementVal = 1;
     }
 
-    const decInc: number = longLen == 0
+    const decInc: number = longLen === 0
       ? 0
       : Math.floor((shortLen << 16) / longLen);
 
@@ -747,16 +789,42 @@ class TextureAtlasMain {
     }
   }
 
+  /** Draws an image to the atlas */
+  public static drawImage(
+    image: CanvasImageSource,
+    sx: number, sy: number, swidth: number, sheight: number,
+    dx: number, dy: number, dwidth: number, dheight: number,
+  ) {
+    this.atlas.drawImage(
+      image,
+      sx, sy, swidth, sheight,
+      dx, dy, dwidth, dheight
+    );
+  }
+
+  /** Runs code in the context of the WHOLE atlas. */
+  public static runInContext(callback: (ctx: AtlasContext) => void): void {
+    callback(this.atlas);
+  }
+
   /** Saves the state of the atlas (canvas drawing operation) */
   public static stateSave() { this.atlas.save(); }
   /** Restores the state of the atlas (canvas drawing operation) */
   public static stateRestore() { this.atlas.restore(); }
 
-  /** Starts a clip (mask) */
-  public static clip(x: number, y: number, w: number, h: number) {
+  /** Starts a clip (mask). Can only end when using stateSave/stateRestore */
+  public static clip(
+    x: number, y: number,
+    w: number, h: number,
+    transform = false
+  ) {
     this.atlas.beginPath();
     this.atlas.rect(x, y, w, h);
     this.atlas.clip();
+
+    if (transform) {
+      this.atlas.translate(x, y);
+    }
   }
 }
 
@@ -777,7 +845,9 @@ function ratioIsBetter(
 
   return Peek.frameCount % 60 < 2 ? (pa + pb < ca + cb) : (pa + pb > ca + cb);
 }
-const TextureAtlas: (typeof TextureAtlasMain) & Drawable = TextureAtlasMain;
+
+type TextureAtlasInstanceType = (typeof TextureAtlasMain) & DrawWriteable;
+const TextureAtlas: TextureAtlasInstanceType = TextureAtlasMain;
 
 /**
  * A texture that can be loaded, unloaded, drawn on... pretty much anything!
@@ -785,7 +855,7 @@ const TextureAtlas: (typeof TextureAtlasMain) & Drawable = TextureAtlasMain;
  * Since all textures exist within the texture atlas, each texture is
  * responsible for only using/modifying its portion of the atlas.
  */
-export class Texture implements Drawable {
+export class Texture implements DrawReadable, DrawWriteable {
   private static freeListener = new FinalizationRegistry((pos: AtlasPos) => {
     // This runs when a texture is garbage collected!
     console.log(`Texture at (${pos[0]}, ${pos[1]}) was freed!`);
@@ -817,17 +887,17 @@ export class Texture implements Drawable {
   /**
    * Makes a new texture object, which points to the texture atlas.
    * 
-   * If you want an empty texture that will be allocated later, pass -1 as
+   * If you want an empty texture that will be allocated later, pass 0 as
    * the width and height. Empty textures don't take up space on the atlas.
    */
   public constructor(width: number, height: number) {
     this.textureId = Texture.currTextureID++;
-    if (width == -1 || height == -1) {
+    if (width === 0 || height === 0) {
       // Just make the object, without allocating space on the atlas
-      this.width = -1;
-      this.height = -1;
-      this.atlasX = -1;
-      this.atlasY = -1;
+      this.width = 0;
+      this.height = 0;
+      this.atlasX = 0;
+      this.atlasY = 0;
     } else {
       // The size is already provided
       this.setSize(width, height);
@@ -836,7 +906,7 @@ export class Texture implements Drawable {
 
   /** Sets the size of this texture, making sure it gets freed after its use. */
   private setSize(width: number, height: number) {
-    // TODO: debugger (ensure `this.width` and `this.height` are -1)
+    // TODO: debugger ensure this.width and this.height == 0 before setting size
     this.width  = width;
     this.height = height;
 
@@ -882,7 +952,7 @@ export class Texture implements Drawable {
     callback?: (success: boolean) => void
   ): Texture {
     // Make the texture
-    const tex = new Texture(-1, -1);
+    const tex = new Texture(0, 0);
 
     // Load the image (async)
     const img = new Image();
@@ -1024,8 +1094,7 @@ export class Texture implements Drawable {
 
     // Actually apply tint
     TextureAtlas.atlasBlendMode(BlendMode.MULTIPLY);
-    TextureAtlas.atlasColor(color);
-    TextureAtlas.fillRect(out.atlasX, out.atlasY, width, height);
+    TextureAtlas.fillRect(out.atlasX, out.atlasY, width, height, color);
 
     // Re-gain alpha
     TextureAtlas.atlasBlendMode(BlendMode.DEST_IN);
@@ -1118,10 +1187,10 @@ export class Texture implements Drawable {
   /** Fills this texture completely with the given color */
   public fill(color: Color) {
     TextureAtlas.clearRect(this.atlasX, this.atlasY, this.width, this.height);
-    TextureAtlas.atlasColor(color);
-    if (color.alpha != 0) {
-      TextureAtlas.fillRect(this.atlasX, this.atlasY, this.width, this.height);
-    }
+    TextureAtlas.fillRect(
+      this.atlasX, this.atlasY, this.width, this.height,
+      color
+    );
   }
 
   /** Sets a pixel within the texture */
@@ -1156,24 +1225,48 @@ export class Texture implements Drawable {
     );
   }
 
-  /** Draws a filled rectangle given the top left point, width, and height. */
-  public fillRect(x: number, y: number, width: number, height: number) {
-    // TODO: debugger hook
-    TextureAtlas.fillRect(x + this.atlasX, y + this.atlasY, width, height);
-  }
-  
-  /** Draws a rectangle outline given the top left point, width, and height. */
-  public rect(x: number, y: number, width: number, height: number) {
-    // TODO: debugger hook
-    TextureAtlas.rect(
-      x + this.atlasX, y + this.atlasY,
-      width, height
+  /** Clears the texture. */
+  public clear() {
+    TextureAtlas.clearRect(
+      this.atlasX, this.atlasY,
+      this.width, this.height
     );
   }
 
-  /** Draws a centered circle at the given position. */
-  public circle(x: number, y: number, radius: number) {
-    TextureAtlas.circle(this.atlasX + x, this.atlasY + y, radius);
+  /** Draws a filled rectangle given the top left point, width, and height. */
+  public fillRect(
+    x: number, y: number,
+    width: number, height: number,
+    color: Color
+  ) {
+    // TODO: debugger hook
+    TextureAtlas.fillRect(
+      x + this.atlasX, y + this.atlasY, width, height,
+      color
+    );
+  }
+  
+  /** Draws a rectangle outline given the top left point, width, and height. */
+  public rect(
+    x: number, y: number,
+    width: number, height: number,
+    color: Color
+  ) {
+    // TODO: debugger hook
+    TextureAtlas.rect(
+      x + this.atlasX, y + this.atlasY, width, height,
+      color
+    );
+  }
+
+  /** Draws a centered circle outline at the given position */
+  public circle(x: number, y: number, radius: number, color: Color) {
+    TextureAtlas.circle(this.atlasX + x, this.atlasY + y, radius, color);
+  }
+
+  /** Draws a centered, filled circle at the given position */
+  public fillCircle(x: number, y: number, radius: number, color: Color) {
+    TextureAtlas.fillCircle(this.atlasX + x, this.atlasY + y, radius, color);
   }
 
   /**
@@ -1186,7 +1279,7 @@ export class Texture implements Drawable {
    * @param x2 The line's end X
    * @param y2 The line's end Y
    */
-  public line(x1: number, y1: number, x2: number, y2: number) {
+  public line(x1: number, y1: number, x2: number, y2: number, color: Color) {
     x1 = ~~x1 + this.atlasX;
     x2 = ~~x2 + this.atlasX;
     y1 = ~~y1 + this.atlasY;
@@ -1215,19 +1308,20 @@ export class Texture implements Drawable {
       incrementVal = 1;
     }
 
-    const decInc: number = longLen == 0
+    const decInc: number = longLen === 0
       ? 0
       : Math.floor((shortLen << 16) / longLen);
 
     let j = 0;
+    TextureAtlas.atlasColor(color);
     if (yLonger) {
       for (let i = 0; i !== endVal; i += incrementVal) {
-        TextureAtlas.fillRect(x1 + (j >> 16), y1 + i, 1, 1);
+        TextureAtlas.atlas.fillRect(x1 + (j >> 16), y1 + i, 1, 1);
         j += decInc;
       }
     } else {
       for (let i = 0; i !== endVal; i += incrementVal) {
-        TextureAtlas.fillRect(x1 + i, y1 + (j >> 16), 1, 1);
+        TextureAtlas.atlas.fillRect(x1 + i, y1 + (j >> 16), 1, 1);
         j += decInc;
       }
     }
@@ -1298,16 +1392,87 @@ export class Texture implements Drawable {
     return this;
   }
 
-  /** Draws this texture to a specific position */
-  public draw(x: number, y: number, width?: number, height?: number) {
-    if (this.width == -1 || this.height == -1) return;
-    Peek.ctx.drawImage(
-      TextureAtlas.atlasCanvas,
-      this.atlasX, this.atlasY, this.width, this.height,
-      x, y, width ?? this.width, height ?? this.height,
-    );
+  public draw(
+    x: number, y: number,
+    destination?: DrawWriteable,
+  ): void;
+  public draw(
+    x: number, y: number,
+    width: number, height: number,
+    destination?: DrawWriteable,
+  ): void;
+  public draw(
+    sx: number, sy: number,
+    swidth: number, sheight: number,
+    dx: number, dy: number,
+    dwidth: number, dheight: number,
+    destination?: DrawWriteable,
+  ): void;
 
-    // this.tryOptimizeInAtlas();
+  /** Draws this texture */
+  public draw(
+    sx: number, sy: number,
+    swidth?: number | DrawWriteable, sheight?: number,
+    dx?: number | DrawWriteable, dy?: number,
+    dwidth?: number, dheight?: number,
+    destination?: DrawWriteable,
+  ) {
+    if (this.width === 0 || this.height === 0) return;
+    if (typeof dx !== 'number') {
+      let dest: DrawWriteable;
+      if (typeof swidth === 'number') {
+        dest = Peek;
+      } else {
+        dest = swidth ?? Peek;
+        swidth = this.width;
+        sheight = this.height;
+      }
+      dest.drawImage(
+        TextureAtlas.atlasCanvas,
+        this.atlasX, this.atlasY, this.width, this.height,
+        sx, sy, this.width, this.height,
+      );
+    } else {
+      // TODO: add debug bindings for out-of-bounds reads
+      (destination ?? Peek).drawImage(
+        TextureAtlas.atlasCanvas,
+        this.atlasX + sx, this.atlasY + sy, (swidth as number), sheight!,
+        dx!, dy!, dwidth!, dheight!,
+      );
+    }
+    this.tryOptimizeInAtlas();
+  }
+
+  /**  */
+  public drawImage(
+    source: CanvasImageSource,
+    sx: number, sy: number, sw: number, sh: number,
+    dx: number, dy: number, dw: number, dh: number,
+  ) {
+    TextureAtlas.stateSave();
+    TextureAtlas.clip(this.atlasX, this.atlasY, this.width, this.height);
+    TextureAtlas.drawImage(
+      source,
+      sx, sy, sw, sh,
+      this.atlasX + dx, this.atlasY + dy, dw, dh
+    );
+    TextureAtlas.stateRestore();
+  }
+
+  /**
+   * Temporarily initalizes the atlas canvas to be drawn to.
+   * 
+   * The context is clipped to the area of the texture, so drawing outside of it
+   * isn't possible. Be careful, however, as restoring this canvas can cause
+   * breaking changes to the texture atlas!
+   * 
+   * @param callback 
+   */
+  public runInContext(callback: (ctx: AtlasContext) => void): void {
+    TextureAtlas.stateSave();
+    TextureAtlas.clip(this.atlasX, this.atlasY, this.width, this.height, true);
+    callback(TextureAtlas.atlas);
+    TextureAtlas.stateRestore();
   }
 
   /** Tries to move this texture closer to (0, 0) in the atlas. */
@@ -1364,27 +1529,6 @@ export function atlasCleanup() {
 /** Sets the atlas color! */
 export function atlasColor(color: Color) {
   TextureAtlas.atlasColor(color);
-}
-
-/**
- * Returns arguments to use in a full `drawImage` call.
- * 
- * (eg. `ctx.drawImage(...atlasSource(texture), 0, 0, width, height)`)
- * @param texture 
- * @returns 
- */
-export function atlasSource(texture: Texture): [
-  HTMLCanvasElement | OffscreenCanvas,
-  number, number,
-  number, number
-] {
-  texture.tryOptimizeInAtlas();
-  return [
-    TextureAtlas.atlasCanvas,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    texture.getAtlasX(), texture.getAtlasY(),
-    texture.getWidth(), texture.getHeight()
-  ];
 }
 
 window.TextureAtlas = TextureAtlas;

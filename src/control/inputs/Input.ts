@@ -30,24 +30,24 @@ export class Input {
   private callbacks: Map<InputType, Set<[ number, WeakRef<GenericCallback> ]>>
     = new Map();
 
-  public pipe<T extends Record<string, ButtonInit>>(
+  public pipe<T extends string>(
     inputType: InputType.Position,
     fn: (x: number, y: number) => void,
     controller: Controller<T>
   ): void;
-  public pipe<T extends Record<string, ButtonInit>>(
+  public pipe<T extends string>(
     inputType: InputType.Direction,
     fn: (x: number, y: number) => void,
     controller: Controller<T>
   ): void;
-  public pipe<T extends Record<string, ButtonInit>>(
+  public pipe<T extends string>(
     inputType: InputType.Button,
     fn: (button: string | number, state: number) => void,
     controller: Controller<T>
   ): void;
 
   /** Pipes input from the selected input to the given function */
-  public pipe<T extends Record<string, ButtonInit>>(
+  public pipe<T extends string>(
     inputType: InputType,
     fn: GenericCallback,
     controller: Controller<T>
@@ -63,7 +63,7 @@ export class Input {
     }
 
     // Initialize
-    if (this.callbackCount == 0) {
+    if (this.callbackCount === 0) {
       this.onInitialize();
     }
     this.callbackCount++;
@@ -77,14 +77,14 @@ export class Input {
     for (const kvPair of this.callbacks) {
       const set = kvPair[1];
       for (const callback of set) {
-        if (callback[0] != controllerID) continue;
+        if (callback[0] !== controllerID) continue;
         this.callbackCount--;
         set.delete(callback);
       }
     }
 
     // Destroy
-    if (this.callbackCount == 0) {
+    if (this.callbackCount === 0) {
       this.onDestroy();
     }
   }

@@ -120,7 +120,17 @@ export function map(
   );
 }
 
-// RANOMNESS
+/** Converts an amount of milliseconds to a delta value (scaled at 60 FPS) */
+export function millisToDelta(millis: number) {
+  return millis / 16.6666666;
+}
+
+/** Converts a delta value to the corresponding amount of milliseconds */
+export function deltaToMillis(delta: number) {
+  return delta * 16.6666666;
+}
+
+// RANDOMNESS
 
 /**
  * Generates a random number in a specified range

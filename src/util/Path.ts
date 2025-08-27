@@ -10,16 +10,16 @@ export class Path {
     const parts = path.split('/');
     for (let i = 0; i < parts.length; i++) {
       const part = parts[i];
-      if (part == '.') {
+      if (part === '.') {
         // Same
-      } else if (part == '..') {
+      } else if (part === '..') {
         // Parent
-        if (outParts.length == 0) {
+        if (outParts.length === 0) {
           backSteps++;
         } else {
           outParts.pop();
         }
-      } else if (part == '' && !(isLink && outParts.length <= 1)) {
+      } else if (part === '' && !(isLink && outParts.length <= 1)) {
         // Two slashes, ignore
       } else {
         // Normal path part, add it

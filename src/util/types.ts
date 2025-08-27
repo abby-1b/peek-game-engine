@@ -5,7 +5,8 @@ declare global {
     Peek: any,
     Physics: any,
     Debugger: any,
-    TextureAtlas: any
+    TextureAtlas: any,
+    Color: any,
   }
 }
 

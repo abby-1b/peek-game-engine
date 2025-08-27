@@ -16,10 +16,11 @@ export interface HitBox {
 
 /** A square hitbox, defined with x, y, width and height. */
 export class SquareBox implements HitBox {
+  public x = 0;
+  public y = 0;
+
   /** Makes a square hitbox */
   public constructor(
-    public x: number,
-    public y: number,
     public w: number,
     public h: number,
   ) {}
@@ -46,10 +47,11 @@ export class SquareBox implements HitBox {
 
 /** A circular hitbox, defined with x, y, and radius */
 export class CircleBox implements HitBox {
+  public x = 0;
+  public y = 0;
+  
   /** Makes a circle hitbox */
   public constructor(
-    public x: number,
-    public y: number,
     public r: number,
   ) {}
 

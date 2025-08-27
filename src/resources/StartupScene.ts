@@ -31,7 +31,7 @@ export class StartupScene extends Scene {
 
   /** Makes the startup scene, and sets the scene that comes after it. */
   public constructor(public afterScene: Scene) {
-    Peek.preLoadScene(afterScene);
+    Peek.preloadScene(afterScene);
     super();
   }
 
@@ -76,8 +76,8 @@ export class StartupScene extends Scene {
   protected override process(): void {
     this.centered.pos.set(Peek.screenWidth / 2, Peek.screenHeight / 2);
 
-    if (this.remainingLogoFrames == -1) {
-      if (Peek.frameCount % 10 == 0) {
+    if (this.remainingLogoFrames === -1) {
+      if (Peek.frameCount % 10 === 0) {
         // Check distances every ten frames
         let totalDist = 0;
         for (const particle of this.particles) {
@@ -89,7 +89,7 @@ export class StartupScene extends Scene {
           this.remainingLogoFrames = 60;
         }
       }
-    } else if (this.remainingLogoFrames == 0) {
+    } else if (this.remainingLogoFrames === 0) {
       Peek.loadScene(this.afterScene);
     } else {
       // Change background

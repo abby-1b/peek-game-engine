@@ -75,8 +75,7 @@ export class Gen {
       const x = ~~randomRange(0, width - w);
       const y = ~~randomRange(0, height - h);
 
-      atlasColor(colors.gen());
-      tex.fillRect(x, y, w, h);
+      tex.fillRect(x, y, w, h, colors.gen());
     }
 
     return tex;

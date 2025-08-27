@@ -1,4 +1,5 @@
 import { Peek } from '../peek';
+import { DrawWriteable } from '../util/Drawable';
 import { Path } from '../util/Path';
 import { Vec2 } from './Vec';
 
@@ -19,6 +20,14 @@ export class Font {
    * which is done so they don't take up any space there.
    */
   private fontImage?: HTMLImageElement;
+
+  public isLoadedInner = false;
+  /** Checks if the font is loaded */
+  public isLoaded() {
+    return this.isLoadedInner;
+  }
+
+  private fontLoadCallbacks: ((font: Font) => void)[] = [];
 
   private imageWidth!: number;
   private imageHeight!: number;
@@ -58,16 +67,16 @@ export class Font {
     public readonly isDynamic: boolean,
   ) {
     this.fontImage = new Image();
-    this.fontImage.onload = () => this.onFontLoaded(true);
+    this.fontImage.onload = () => this.fontLoaded(true);
     this.fontImage.onerror = (e) => {
       console.log(e);
-      this.onFontLoaded(false);
+      this.fontLoaded(false);
     };
     this.fontImage.src = url;
   }
 
   /** Runs when the font image either loads or errors. */
-  private onFontLoaded(success: boolean) {
+  private fontLoaded(success: boolean) {
     if (!success) {
       this.fontImage = undefined;
       return;
@@ -76,6 +85,24 @@ export class Font {
     this.imageWidth = this.fontImage!.width;
     this.imageHeight = this.fontImage!.height;
     this.symbolsPerRow = Math.floor(this.imageWidth / this.symbolWidth);
+    this.isLoadedInner = true;
+
+    for (const callback of this.fontLoadCallbacks) {
+      callback(this);
+    }
+    this.fontLoadCallbacks = [];
+  }
+
+  /**
+   * Runs the given callback when the font is loaded.
+   * If the font is already loaded, it runs the callback immediately.
+   */
+  public onFontLoad(callback: (font: Font) => void) {
+    if (this.isLoadedInner) {
+      callback(this);
+    } else {
+      this.fontLoadCallbacks.push(callback);
+    }
   }
 
   /** Gets the size of a piece of text */
@@ -95,7 +122,7 @@ export class Font {
       let lineLen = 0;
       for (let i = 0; i < text.length; i++) {
         const char = text[i];
-        if (char == '\n') {
+        if (char === '\n') {
           lineLen -= trailingHSpace;
           maxLineLen = Math.max(maxLineLen, lineLen);
           lineLen = 0;
@@ -103,10 +130,10 @@ export class Font {
           lineCount++;
           trailingVSpace++;
         } else {
-          if (char == ' ') {
+          if (char === ' ') {
             trailingHSpace++;
           } else {
-            if (lineCount == 0) lineCount++;
+            if (lineCount === 0) lineCount++;
             trailingVSpace = 0;
           }
           lineLen++;
@@ -128,22 +155,23 @@ export class Font {
     }
   }
 
-  /** Draws a string to the canvas */
+  /** Draws a string */
   public draw(
     text: string, x: number, y: number,
-    ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D = Peek.ctx
+    destination: DrawWriteable = Peek
   ) {
+    // Actually draw
     let currX = x;
     let currY = y;
     for (const char of text) {
-      if (char == ' ') {
+      if (char === ' ') {
         // Space
         currX += this.symbolWidth;
-      } else if (char == '\n') {
+      } else if (char === '\n') {
         // Newline
         currX = x;
         currY += this.symbolHeight + this.lineSpacing;
-      } else if (char == '\t') {
+      } else if (char === '\t') {
         // Tab
         currX += this.symbolWidth * this.tabSize;
       } else {
@@ -151,7 +179,7 @@ export class Font {
         const charCode = char.charCodeAt(0);
         const srcX = charCode % this.symbolsPerRow;
         const srcY = ~~(charCode / this.symbolsPerRow);
-        ctx.drawImage(
+        destination.drawImage(
           this.fontImage!,
           srcX * this.symbolWidth, srcY * this.symbolHeight,
           this.symbolWidth, this.symbolHeight,

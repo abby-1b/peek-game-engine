@@ -3,9 +3,12 @@ import { Color } from './resources/Color';
 import { atlasCleanup } from './resources/Texture';
 import { Vec2 } from './resources/Vec';
 import { System } from './systems/System';
-import { Drawable } from './util/Drawable';
-import { lerp } from './util/math';
+import { BlendMode } from './util/BlendMode';
+import { DrawWriteable } from './util/Drawable';
+import { lerp, millisToDelta } from './util/math';
 import { AnyConstructorFor } from './util/types';
+
+const SCENE_LOADING_FLAG = 0;
 
 interface PeekStartupOptions {
   /** The canvas to render on. If none is provided, one is made. */
@@ -45,7 +48,7 @@ class PeekMain {
   private static canvas: HTMLCanvasElement;
 
   /** The rendering context! */
-  public static ctx: CanvasRenderingContext2D & {
+  private static ctx: CanvasRenderingContext2D & {
     webkitImageSmoothingEnabled?: boolean,
     mozImageSmoothingEnabled   ?: boolean,
     imageSmoothingEnabled      ?: boolean,
@@ -87,7 +90,7 @@ class PeekMain {
       ...system.requiredSystems
     );
 
-    if (this.systems.list.length == 0) {
+    if (this.systems.list.length === 0) {
       // Edge case, first system
       this.systems.list.push(system);
       this.systems.map.set(systemName, system);
@@ -157,11 +160,17 @@ class PeekMain {
   public static frameRate = 0;
   public static smoothFrameRate = 0;
 
-  public static delta = 0.1;
+  /**
+   * The amount of time passed since the last framed,
+   * scaled to be 1 when the framerate is 60 FPS.
+   */
+  public static delta = 1;
   private static lastFrameTime: number;
   public static smoothDelta = 1;
 
   private static singlePixelImageData: ImageData;
+
+  public static backgroundColor = Color.WHITE;
 
   /** Sets the screen size in pixels */
   public static screenSize(width: number, height: number) {
@@ -171,7 +180,7 @@ class PeekMain {
   }
 
   /** Starts the game engine */
-  public static start(game: Scene, options: PeekStartupOptions = {}) {
+  public static async start(game: Scene, options: PeekStartupOptions = {}) {
     // Setup sizing
     if (options.size) {
       this.targetWidth = options.size.width;
@@ -207,10 +216,10 @@ class PeekMain {
 
     if (options.startupScene) {
       // Not in debug mode, so load the startup scene
-      this.loadScene(new options.startupScene(game));
+      await this.loadScene(new options.startupScene(game));
     } else {
       // Don't do the startup scene
-      this.loadScene(game);
+      await this.loadScene(game);
     }
 
     // Start the frame loop
@@ -222,7 +231,7 @@ class PeekMain {
   private static frameCallback() {
     // Calculate framerate and delta
     const nowTime = performance.now();
-    Peek.delta = (nowTime - Peek.lastFrameTime) / 16.6666666;
+    Peek.delta = millisToDelta(nowTime - Peek.lastFrameTime);
     Peek.frameRate = 60 / Peek.delta;
     Peek.smoothFrameRate = lerp(Peek.smoothFrameRate, Peek.frameRate, 0.05);
     Peek.smoothDelta = lerp(Peek.smoothDelta, Peek.delta, 0.3);
@@ -315,20 +324,20 @@ class PeekMain {
       }
 
       if (shouldProcessNodes) {
-        // Process the camera nodes
-        for (const [, ref] of scene.cameras) {
-          ref.deref()?.cameraProcess(delta);
-        }
-
         // Process the scene nodes
         scene.processCaller(delta);
+
+        // Process the camera nodes
+        for (const [ , ref ] of scene.cameras) {
+          ref.deref()?.cameraProcess(delta);
+        }
       }
 
 
       // DRAW
 
       // Clear the screen
-      this.ctx.fillStyle = '#fff';
+      this.ctx.fillStyle = this.backgroundColor.fillStyle();
       this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
       // Transform into place (for black bars)
@@ -390,9 +399,9 @@ class PeekMain {
   }
 
   /** Loads a scene and switches to it */
-  public static loadScene(scene: Scene) {
+  public static async loadScene(scene: Scene) {
     // Pre-load the scene, but don't wait for it!
-    this.preLoadScene(scene);
+    await this.preloadScene(scene);
 
     // This scene is the one being drawn now!
     this.loadedSceneID = scene.sceneID;
@@ -401,21 +410,19 @@ class PeekMain {
   /**
    * Preloads a scene. This calls `.preload()`!
    */
-  public static async preLoadScene(scene: Scene) {
+  public static async preloadScene(scene: Scene) {
     if (this.scenes[scene.sceneID] !== undefined) {
       // This scene is already being loaded!
       return;
     }
 
     // Let other functions know that the scene is being loaded!
-    this.scenes[scene.sceneID] = 0;
+    this.scenes[scene.sceneID] = SCENE_LOADING_FLAG;
 
-    // Wait for the scene's preload function
     await scene.preloadCaller();
 
     // TODO: Make sure the scene's assets are loaded (somehow)
 
-    // Call the scene's ready function!
     scene.readyCaller();
 
     // Finally, add the scene
@@ -423,6 +430,34 @@ class PeekMain {
   }
 
   // DRAW HELPERS
+
+  /** Gets the canvas transform */
+  public static getTransform(): DOMMatrix {
+    return this.ctx.getTransform();
+  }
+
+  /** Sets the canvas transform */
+  public static setTransform(transform: DOMMatrix) {
+    this.ctx.setTransform(transform);
+  }
+
+  /** Translates the canvas by a given amount */
+  public static translate(x: number, y: number) {
+    this.ctx.translate(x, y);
+  }
+
+  /** Flips the drawing direction horizontally */
+  public static flipH() {
+    this.ctx.scale(-1, 1);
+  }
+
+  /**
+   * Sets the blend mode for future draw calls.
+   * Make sure to reset it after use!
+   */
+  public static setBlendMode(blendMode: BlendMode) {
+    this.ctx.globalCompositeOperation = blendMode;
+  }
 
   /** Sets a single pixel from the canvas. This is a full replace! */
   public static setPixel(x: number, y: number, color: Color) {
@@ -436,16 +471,6 @@ class PeekMain {
     this.ctx.putImageData(this.singlePixelImageData, x, y);
   }
 
-  /** Gets a single pixel from the canvas. */
-  public static getPixel(x: number, y: number): Color {
-    const data = this.ctx.getImageData(x, y, 1, 1).data;
-    return new Color(data[0], data[1], data[2], data[3]);
-  }
-  /** Gets a single pixel from the canvas. */
-  public static getPixelRaw(x: number, y: number): Uint8ClampedArray {
-    return this.ctx.getImageData(x, y, 1, 1).data;
-  }
-
   /** Erases everything that falls inside this rectangle. */
   public static clearRect(
     x: number, y: number,
@@ -455,12 +480,20 @@ class PeekMain {
   }
 
   /** Draws a filled rectangle given the top left point, width, and height. */
-  public static fillRect(x: number, y: number, width: number, height: number) {
+  public static fillRect(
+    x: number, y: number, width: number, height: number,
+    color: Color
+  ) {
+    this.ctx.fillStyle = color.fillStyle();
     this.ctx.fillRect(x, y, width, height);
   }
   
   /** Draws a rectangle outline given the top left point, width, and height. */
-  public static rect(x: number, y: number, width: number, height: number) {
+  public static rect(
+    x: number, y: number, width: number, height: number,
+    color: Color
+  ) {
+    this.ctx.strokeStyle = color.fillStyle();
     this.ctx.beginPath();
     this.ctx.rect(
       Math.floor(x) + 0.5,
@@ -472,13 +505,12 @@ class PeekMain {
   }
 
   /** Draws a centered circle at the given position. */
-  public static circle(x: number, y: number, radius: number) {
-    [this.ctx.fillStyle, this.ctx.strokeStyle] =
-      [this.ctx.strokeStyle, this.ctx.fillStyle];
-    
+  public static circle(x: number, y: number, radius: number, color: Color) {
     x = Math.floor(x);
     y = Math.floor(y);
     radius = ~~radius;
+
+    this.ctx.fillStyle = color.fillStyle();
 
     let last = radius - 1;
     for (let p = 0; p < radius; p++) {
@@ -486,22 +518,22 @@ class PeekMain {
       const h = ~~(Math.sqrt(1 - f ** 2) * radius);
       const colHeight = (last - h) || 1;
 
-      this.fillRect(
+      this.ctx.fillRect(
         x + p,
         y + h,
         1, colHeight
       );
-      this.fillRect(
+      this.ctx.fillRect(
         x + p,
         y - h,
         1, -colHeight
       );
-      this.fillRect(
+      this.ctx.fillRect(
         x - p,
         y + h,
         1, colHeight
       );
-      this.fillRect(
+      this.ctx.fillRect(
         x - p,
         y - h,
         1, -colHeight
@@ -509,9 +541,32 @@ class PeekMain {
 
       last = h;
     }
+  }
 
-    [this.ctx.fillStyle, this.ctx.strokeStyle] =
-      [this.ctx.strokeStyle, this.ctx.fillStyle];
+  /** Draws a centered, filled circle at the given position */
+  public static fillCircle(x: number, y: number, radius: number, color: Color) {
+    x = Math.floor(x);
+    y = Math.floor(y);
+    radius = ~~radius;
+
+    this.ctx.fillStyle = color.fillStyle();
+    
+    for (let p = 1; p < radius; p++) {
+      const f = p / (radius - 1);
+      const h = ~~(Math.sqrt(1 - f ** 2) * radius);
+
+      this.ctx.fillRect(
+        x + p,
+        y + h,
+        1, -h * 2
+      );
+      this.ctx.fillRect(
+        x - p,
+        y + h,
+        1, -h * 2
+      );
+    }
+    this.ctx.fillRect(x, y - radius, 1, radius * 2);
   }
 
   /**
@@ -524,10 +579,10 @@ class PeekMain {
    * @param x2 The line's end X
    * @param y2 The line's end Y
    */
-  public static line(x1: number, y1: number, x2: number, y2: number) {
-    [this.ctx.fillStyle, this.ctx.strokeStyle] =
-      [this.ctx.strokeStyle, this.ctx.fillStyle];
-    
+  public static line(
+    x1: number, y1: number, x2: number, y2: number,
+    color: Color
+  ) {
     x1 = ~~x1;
     x2 = ~~x2;
     y1 = ~~y1;
@@ -556,11 +611,12 @@ class PeekMain {
       incrementVal = 1;
     }
 
-    const decInc: number = longLen == 0
+    const decInc: number = longLen === 0
       ? 0
       : Math.floor((shortLen << 16) / longLen);
 
     let j = 0;
+    this.ctx.fillStyle = color.fillStyle();
     if (yLonger) {
       for (let i = 0; i !== endVal; i += incrementVal) {
         this.ctx.fillRect(x1 + (j >> 16), y1 + i, 1, 1);
@@ -572,13 +628,31 @@ class PeekMain {
         j += decInc;
       }
     }
-
-    [this.ctx.fillStyle, this.ctx.strokeStyle] =
-      [this.ctx.strokeStyle, this.ctx.fillStyle];
   }
 
+  /** Draws an imagesource to the canvas */
+  public static drawImage(
+    image: CanvasImageSource,
+    sx: number, sy: number,
+    swidth: number, sheight: number,
+    dx: number, dy: number,
+    dwidth: number, dheight: number,
+  ) {
+    this.ctx.drawImage(
+      image,
+      sx, sy, swidth, sheight,
+      dx, dy, dwidth, dheight
+    );
+  }
+
+  /** Runs in the context of this canvas */
+  public static runInContext(
+    callback: (ctx: CanvasRenderingContext2D) => void
+  ) {
+    callback(this.ctx);
+  }
 }
-export const Peek: (typeof PeekMain) & Drawable = PeekMain;
+export const Peek: (typeof PeekMain) & DrawWriteable = PeekMain;
 
 // Expose the engine!
 window.Peek = Peek;

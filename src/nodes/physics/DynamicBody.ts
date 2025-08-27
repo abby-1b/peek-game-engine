@@ -40,7 +40,7 @@ export class DynamicBody extends StaticBody {
     this.velocity.addVec(this.acceleration.mulScalarRet(0.5 * delta));
   }
 
-  /** Sets this body's acceleration. Use this, never add to the speed! */
+  /** Sets this body's acceleration. Use this, never add to the velocity! */
   public setAccelVec(acceleration: Vec2): void {
     this.acceleration.setVec(acceleration);
   }

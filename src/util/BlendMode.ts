@@ -12,3 +12,8 @@ export const enum BlendMode {
   LUMINOSITY = 'luminosity',
   COLOR = 'color',
 }
+
+export interface BlendModeChangeable {
+  blendMode: BlendMode;
+  setBlendMode(blendMode: BlendMode): this;
+}

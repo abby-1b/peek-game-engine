@@ -1,16 +1,15 @@
 {
-	"compilerOptions": {
-		"target": "ESNext",
-		"module": "ESNext",
-		"lib": [ "DOM", "ESNext.WeakRef", "ESNext" ],
-		"strict": true,
-		"allowImportingTsExtensions": true,
-		"noEmit": true,
-		"noImplicitAny": true,
-		"noImplicitOverride": true
-	},
-	"exclude": [
-		"./examples/3d",
-		"./examples/buttons",
-	]
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "lib": [ "DOM", "ESNext.WeakRef", "ESNext" ],
+    "strict": true,
+    "allowImportingTsExtensions": true,
+    "noEmit": true,
+    "noImplicitAny": true,
+    "noImplicitOverride": true
+  },
+  "exclude": [
+    "./examples/*",
+  ]
 }

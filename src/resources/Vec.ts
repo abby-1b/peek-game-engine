@@ -227,7 +227,7 @@ export class Vec2 {
    */
   public normalize(targetLength = 1) {
     const realLength = Math.hypot(this.x, this.y) / targetLength;
-    if (realLength == 0) return;
+    if (realLength === 0) return;
     this.x /= realLength;
     this.y /= realLength;
   }
@@ -341,12 +341,12 @@ export class Vec2 {
 
   /** Checks if this vector's components equal some value */
   public equals(x: number, y: number) {
-    return this.x == x && this.y == y;
+    return this.x === x && this.y === y;
   }
   
   /** Checks if this vector's components equal some value */
   public equalsVec(v: Vec2) {
-    return this.x == v.x && this.y == v.y;
+    return this.x === v.x && this.y === v.y;
   }
 
   /** Gets the dot product between two vectors */
@@ -359,7 +359,7 @@ export class Vec2 {
     return Math.hypot(this.x - v.x, this.y - v.y);
   }
   
-  /** Gets the distance from this vector to another */
+  /** Gets the squared distance from this vector to another */
   public distanceSquaredTo(v: Vec2) {
     return (this.x - v.x) ** 2 + (this.y - v.y) ** 2;
   }
@@ -387,7 +387,7 @@ export class Vec2 {
    */
   public normalized(targetLength = 1) {
     const realLength = Math.hypot(this.x, this.y) / targetLength;
-    if (realLength == 0) return this.copy();
+    if (realLength === 0) return this.copy();
     return new Vec2(
       this.x / realLength,
       this.y / realLength
@@ -430,7 +430,7 @@ export class Vec2 {
 
   /** Returns true if this vector is zero, and false otherwise */
   public isZero(): boolean {
-    return this.x == 0 && this.y == 0;
+    return this.x === 0 && this.y === 0;
   }
 
   /** Returns a string in the format `Vec2(x, y)` */

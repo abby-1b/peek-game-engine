@@ -11,12 +11,18 @@ export class StaticBody extends PNode {
   public static currentBodyId: number = 0;
   public readonly bodyId: number;
 
-  public hitBox: HitBox = new SquareBox(0, 0, 0, 0);
+  public hitBox: HitBox = new SquareBox(0, 0);
 
   /** Constructs a static body! */
   public constructor() {
     super();
     this.bodyId = StaticBody.currentBodyId++;
+  }
+
+  /** Sets this node's hitbox */
+  public setHitbox(hb: HitBox): this {
+    this.hitBox = hb;
+    return this;
   }
 
   /** Gets this node's hitbox */

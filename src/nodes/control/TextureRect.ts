@@ -1,6 +1,7 @@
 import { Peek } from '../../peek';
-import { atlasSource, Texture } from '../../resources/Texture';
+import { Texture } from '../../resources/Texture';
 import { Vec2 } from '../../resources/Vec';
+import { DrawWriteable } from '../../util/Drawable';
 import { HasTexture } from '../../util/HasTexture';
 import { ControlNode } from './ControlNode';
 
@@ -31,12 +32,16 @@ export class TextureRect extends ControlNode implements HasTexture {
     const ctx = intermediateCanvas.getContext('2d')!;
 
     // Put the texture into the canvas
-    ctx.drawImage(
-      ...atlasSource(texture),
-      0, 0, texture.getWidth(), texture.getHeight()
-    );
+    texture.draw(0, 0, ctx as unknown as DrawWriteable);
+    // ctx.drawImage(
+    //   ...atlasSource(texture),
+    //   0, 0, texture.getWidth(), texture.getHeight()
+    // );
 
-    this.pattern = Peek.ctx.createPattern(intermediateCanvas, 'repeat');
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    this.pattern = (Peek as any).ctx.createPattern(
+      intermediateCanvas, 'repeat'
+    );
     return this;
   }
 
@@ -46,9 +51,11 @@ export class TextureRect extends ControlNode implements HasTexture {
     const offsX = Math.round(this.offset.x);
     const offsY = Math.round(this.offset.y);
 
-    Peek.ctx.translate(offsX, offsY);
-    Peek.ctx.fillStyle = this.pattern;
-    Peek.ctx.fillRect(-offsX, -offsY, width, height);
-    Peek.ctx.translate(-offsX, -offsY);
+    Peek.translate(offsX, offsY);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (Peek as any).ctx.fillStyle = this.pattern;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (Peek as any).ctx.fillRect(-offsX, -offsY, width, height);
+    Peek.translate(-offsX, -offsY);
   }
 }

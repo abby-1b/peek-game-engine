@@ -71,7 +71,7 @@ export class Camera extends PNode {
     let parent = this.parent;
     while (!(parent instanceof Scene)) {
       parent = parent.parent;
-      if (parent == undefined) { return; }
+      if (parent === undefined) { return; }
     }
     this.parentScene = parent;
     
@@ -115,11 +115,11 @@ export class Camera extends PNode {
         interpolateDelta(0.3, delta)
       );
   
-      this.x = lerp(this.x, x, this.followParams.followSpeed);
-      this.y = lerp(this.y, y, this.followParams.followSpeed);
-      this.x += this.speedX * this.followParams.aheadMultiplier;
-      this.y += this.speedY * this.followParams.aheadMultiplier;
-  
+      this.x = x; // lerp(this.x, x, this.followParams.followSpeed);
+      this.y = y; // lerp(this.y, y, this.followParams.followSpeed);
+      // this.x += this.speedX * this.followParams.aheadMultiplier;
+      // this.y += this.speedY * this.followParams.aheadMultiplier;
+
       this.lastX = x;
       this.lastY = y;
     } else {
@@ -189,6 +189,6 @@ export class Camera extends PNode {
   public doTransform() {
     const finalX = Math.round(this.x + this.shakeX - Peek.screenWidth  * 0.5);
     const finalY = Math.round(this.y + this.shakeY - Peek.screenHeight * 0.5);
-    Peek.ctx.translate(-finalX, -finalY);
+    Peek.translate(-finalX, -finalY);
   }
 }

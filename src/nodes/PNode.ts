@@ -18,6 +18,12 @@ export class PNode {
   /** This node's position */
   public pos: Vec2 = Vec2.zero();
 
+  /** Sets this node's position */
+  public setPos(x: number, y: number): this {
+    this.pos.set(x, y);
+    return this;
+  }
+
   /** This node's parent */
   public readonly parent!: PNode;
 
@@ -25,7 +31,10 @@ export class PNode {
   public constructor() {}
 
   /** This node's children */
-  private children: PNode[] = [];
+  protected children: PNode[] = [];
+
+  // /** The amount of children that are currently being preloaded */
+  // private preloadingChildCount = 0;
 
   /** Gets this node's children */
   public getChildren(): ReadonlyArray<PNode> {
@@ -53,32 +62,24 @@ export class PNode {
   /** Gets this node's hitbox. */
   public getHitbox(
     integer: boolean,
-    hitBoxObj?: HitBox
+    hitBoxObj?: HitBox,
+    centered = true
   ): HitBox {
     // Get the starting position
-    let ret;
-    if (hitBoxObj) {
-      ret = hitBoxObj;
-      hitBoxObj.x = this.pos.x;
-      hitBoxObj.y = this.pos.y;
-    } else {
-      ret = new SquareBox(
-        this.pos.x,
-        this.pos.y,
-        0, 0
-      );
-    }
+    const ret = hitBoxObj ?? new SquareBox(0, 0);
+    ret.x = this.pos.x;
+    ret.y = this.pos.y;
     
     // Add parent transforms
     let parent = this.parent;
-    while (parent != undefined) {
+    while (parent !== undefined) {
       ret.x += parent.pos.x;
       ret.y += parent.pos.y;
       parent = parent.parent;
     }
 
     // Center square hitboxes
-    if (ret instanceof SquareBox) {
+    if (centered && ret instanceof SquareBox) {
       ret.x -= ret.w * 0.5;
       ret.y -= ret.h * 0.5;
     }
@@ -103,7 +104,6 @@ export class PNode {
 
   /**
    * Gets nodes at a given position, searching breadth-first.
-   * Keep in mind that this might return an empty array!
    * @param pos The position (world-space) to check at
    * @param count The number of nodes to retrieve
    * @returns The list of found nodes
@@ -123,7 +123,7 @@ export class PNode {
         hits.push(node);
       }
 
-      if (hits.length == count) {
+      if (hits.length === count) {
         break;
       }
 
@@ -141,10 +141,6 @@ export class PNode {
   /** Adds children to this node */
   public add(...children: PNode[]): this {
     for (const child of children) {
-      if (!child.isPreloaded) {
-        child.preloadCaller();
-      }
-
       // Set the child's parent to be `this`
       // This is the only place that changes a child's parent
       (child as { parent: PNode }).parent = this;
@@ -181,11 +177,11 @@ export class PNode {
     let search = 0;
     const len = this.children.length;
     while (++insert < len) {
-      if (this.children[insert] != undefined) continue;
+      if (this.children[insert] !== undefined) continue;
       search = insert;
       while (
         search < len &&
-        this.children[++search] == undefined
+        this.children[++search] === undefined
       );
 
       if (search >= len) break;
@@ -197,7 +193,7 @@ export class PNode {
     // Pop undefined from end
     while (
       this.children.length > 0 &&
-      this.children[this.children.length - 1] == undefined
+      this.children[this.children.length - 1] === undefined
     ) this.children.pop();
 
     return this;
@@ -210,9 +206,7 @@ export class PNode {
 
   /** Removes this node from its parent. */
   public removeSelf() {
-    if (this.parent) {
-      this.parent.remove(this);
-    }
+    this.parent?.remove(this);
   }
 
   /**
@@ -249,17 +243,23 @@ export class PNode {
   // PROCESSING METHODS
 
   /**
-   * Calls `.preload()` after its children's. Used internally
-   * by the engine to make overriding easier!
+   * Calls `.preload()` after its children's.
+   * Used internally by the engine to make overriding easier!
    */
   public async preloadCaller() {
     // Preload children first (recursively)
     for (const child of this.children) {
-      await child.preloadCaller();
+      if (!child.isPreloaded) await child.preloadCaller();
     }
 
     // Call *this* preload function after the children are loaded
     await this.preload();
+
+    // Finally, call new children's preloads
+    for (const child of this.children) {
+      if (!child.isPreloaded) await child.preloadCaller();
+    }
+
     this.isPreloaded = true;
   }
 
@@ -295,11 +295,12 @@ export class PNode {
 
   /**
    * Calls `.process()`, then its children's. This is used internally by the
-   * engine to make overriding easier! If you want to override the process
-   * method, try overriding `.process()`.
+   * engine to make overriding easier!
+   * 
+   * If you want to override the process method, try overriding `.process()`.
    */
   public processCaller(delta: number) {
-    // TODO: if (this.isPaused)
+    if (this.isPaused) return;
 
     // Call the process function (recursively)
     this.process(delta);
@@ -324,8 +325,8 @@ export class PNode {
     if (this.isHidden) return;
 
     // Set this transform
-    const transform = Peek.ctx.getTransform();
-    Peek.ctx.translate(Math.floor(this.pos.x), Math.floor(this.pos.y));
+    const transform = Peek.getTransform();
+    Peek.translate(Math.floor(this.pos.x), Math.floor(this.pos.y));
 
     // Call the draw function (recursively)
     this.draw();
@@ -334,7 +335,7 @@ export class PNode {
     }
     
     // Un-transform
-    Peek.ctx.setTransform(transform);
+    Peek.setTransform(transform);
   }
 
   /**

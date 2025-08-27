@@ -1,3 +1,10 @@
+/**
+ * The controller class!
+ * 
+ * `(string & {})` is used extensively here to provide
+ * partial and flexible autocomplete for button names.
+ */
+
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { Vec2 } from '../resources/Vec';
 import { ButtonInit, ButtonState, InputType } from './inputs/Input';
@@ -7,7 +14,7 @@ import { Mouse, MouseButton } from './inputs/Mouse';
 const ALL_INPUTS = [ Mouse, Keyboard ];
 // TODO: Touch, GamePad
 
-interface ControllerInit<T extends Record<string, ButtonInit>> {
+interface ControllerInit<K extends string> {
   pointer?: {
     mouse?: boolean,
     touch?: boolean,
@@ -31,13 +38,13 @@ interface ControllerInit<T extends Record<string, ButtonInit>> {
   },
 
   /** Key-value pairs that dictate button names and their properties */
-  buttons?: T
+  buttons?: Record<K, ButtonInit>
 }
 
 type ButtonCallback = () => void;
 
 /** Binds many input types together. */
-export class Controller<T extends Record<string, ButtonInit>>  {
+export class Controller<K extends string>  {
   // STATIC
 
   private static currentID = 0;
@@ -77,7 +84,7 @@ export class Controller<T extends Record<string, ButtonInit>>  {
   public direction: Vec2 = Vec2.zero();
 
   /** A map of buttons and their states */
-  public buttons: Record<keyof T, boolean>;
+  public buttons: Record<K, boolean>;
   
   /** Callbacks for when a button is pressed. */
   private buttonDownCallbacks: Record<string, ButtonCallback[]> = {};
@@ -104,8 +111,8 @@ export class Controller<T extends Record<string, ButtonInit>>  {
     });
   }
 
-  /** Sets up a controller */
-  public constructor(init: ControllerInit<T>) {
+  /** Makes a controller. Called internally from `Controller.new()`. */
+  public constructor(init: ControllerInit<K>) {
     // Setup this controller ID
     this.id = Controller.currentID;
     Controller.currentID++;
@@ -124,10 +131,10 @@ export class Controller<T extends Record<string, ButtonInit>>  {
           }
         }, this);
         Mouse.pipe(InputType.Button, (button, state) => {
-          if (button == MouseButton.LEFT) {
+          if (button === MouseButton.LEFT) {
             this.lastDragPos.setVec(this.pointer);
             this.triggerButton('pointer', state);
-            this.pointerDown = state == ButtonState.PRESSED;
+            this.pointerDown = state === ButtonState.PRESSED;
           }
         }, this);
       }
@@ -183,10 +190,10 @@ export class Controller<T extends Record<string, ButtonInit>>  {
     }
 
     // Initialize buttons states
-    const keyboardButtonMappings: Record<string, keyof T> = {};
+    const keyboardButtonMappings: Record<string, K> = {};
     // Const gamePadButtonMappings: Record<string, string> = {};
     
-    this.buttons = {} as Record<keyof T, boolean>;
+    this.buttons = {} as Record<K, boolean>;
     if (init.buttons) {
       for (const buttonName in init.buttons) {
         // Initialize pressed state to false
@@ -205,7 +212,7 @@ export class Controller<T extends Record<string, ButtonInit>>  {
           const buttonName = keyboardButtonMappings[button];
           this.triggerButton(buttonName as string, state);
           this.buttons[buttonName] =
-            state == ButtonState.PRESSED;
+            state === ButtonState.PRESSED;
         }
       },
       this
@@ -216,9 +223,9 @@ export class Controller<T extends Record<string, ButtonInit>>  {
 
   /** Runs when a button is pressed/released */
   private triggerButton(buttonName: string, state: ButtonState) {
-    if (state == ButtonState.PRESSED) {
+    if (state === ButtonState.PRESSED) {
       this.buttonDownCallbacks[buttonName]?.forEach(c => c());
-    } else if (state == ButtonState.UNPRESSED) {
+    } else if (state === ButtonState.UNPRESSED) {
       this.buttonUpCallbacks[buttonName]?.forEach(c => c());
     }
   }
@@ -229,7 +236,8 @@ export class Controller<T extends Record<string, ButtonInit>>  {
    * @param callback The callback
    */
   public onPress(
-    buttonName: string,
+    // eslint-disable-next-line @typescript-eslint/ban-types
+    buttonName: K | (string & {}),
     callback: ButtonCallback
   ) {
     if (!(buttonName in this.buttonDownCallbacks)) {
@@ -245,7 +253,8 @@ export class Controller<T extends Record<string, ButtonInit>>  {
    * @param callback The callback
    */
   public onRelease(
-    buttonName: string,
+    // eslint-disable-next-line @typescript-eslint/ban-types
+    buttonName: K | (string & {}),
     callback: ButtonCallback
   ) {
     if (!(buttonName in this.buttonUpCallbacks)) {
@@ -263,7 +272,8 @@ export class Controller<T extends Record<string, ButtonInit>>  {
    * @param callback The callback to remove
    */
   public removeOnPress(
-    buttonName: string,
+    // eslint-disable-next-line @typescript-eslint/ban-types
+    buttonName: K | (string & {}),
     callback?: ButtonCallback
   ) {
     if (!(buttonName in this.buttonDownCallbacks)) {
@@ -294,7 +304,8 @@ export class Controller<T extends Record<string, ButtonInit>>  {
    * @param callback The callback to remove
    */
   public removeOnRelease(
-    buttonName: string,
+    // eslint-disable-next-line @typescript-eslint/ban-types
+    buttonName: K | (string & {}),
     callback?: ButtonCallback
   ) {
     if (!(buttonName in this.buttonUpCallbacks)) {

@@ -24,7 +24,16 @@ export class Color {
 
   // Cache the `fillStyle` string
   private fillStyleCache?: string;
-  
+
+  /**
+   * Constructs a color from a hex string,
+   * in the format `#RGB`, `#RGBA`, `#RRGGBB` or `#RRGGBBAA`
+   * 
+   * Eg: Color('#FF00FF80') = Color(255, 0, 255, 128)
+   * @param hex The hex string
+   */
+  public constructor(hex: string);
+
   /**
    * Constructs a color with a given luminance for R, G, and B,
    * specified in the range of 0 to 255.
@@ -65,15 +74,34 @@ export class Color {
   
   /** Constructs a color */
   public constructor(
-    red: number,
+    red: number | string,
     green?: number,
     blue?: number,
     alpha?: number
   ) {
-    this.red = red;
-    this.green = arguments.length < 3 ? red : green!;
-    this.blue = arguments.length < 3 ? red : blue!;
-    this.alpha = [ 0, 255, green!, 255, alpha! ][arguments.length];
+    if (typeof red === 'string') {
+      const hexString = red[0] === '#' ? red.slice(1) : red;
+      if (hexString.length === 3 || hexString.length === 4) {
+        this.red = parseInt(hexString[0] + hexString[0], 16);
+        this.green = parseInt(hexString[1] + hexString[1], 16);
+        this.blue = parseInt(hexString[2] + hexString[2], 16);
+        this.alpha = hexString.length === 3 ? 255
+          : parseInt(hexString[3] + hexString[3], 16);
+      } else if (hexString.length === 6 || hexString.length === 8) {
+        this.red = parseInt(hexString[0] + hexString[1], 16);
+        this.green = parseInt(hexString[2] + hexString[3], 16);
+        this.blue = parseInt(hexString[4] + hexString[5], 16);
+        this.alpha = hexString.length === 6 ? 255
+          : parseInt(hexString[6] + hexString[7], 16);
+      } else {
+        throw new Error('Malformed HEX color: ' + hexString);
+      }
+    } else {
+      this.red = red;
+      this.green = arguments.length < 3 ? red : green!;
+      this.blue = arguments.length < 3 ? red : blue!;
+      this.alpha = [ 0, 255, green!, 255, alpha! ][arguments.length];
+    }
   }
 
   /** Gets the `fillStyle` string of this color. */
@@ -98,6 +126,21 @@ export class Color {
     return this;
   }
 
+  /** Checks if this color is the same as another */
+  public equals(color: Color) {
+    return (
+      this.red === color.red &&
+      this.green === color.green &&
+      this.blue === color.blue &&
+      this.alpha === color.alpha
+    );
+  }
+
+  /** Returns a new color with the same RGB but a different alpha */
+  public withAlpha(alpha: number) {
+    return new Color(this.red, this.green, this.blue, alpha * 255);
+  }
+
   /**
    * Returns a completely random color, with each color channel randomized,
    * and an alpha of 255.
@@ -111,6 +154,8 @@ export class Color {
     );
   }
 }
+
+window.Color = Color;
 
 /** Generates random colors with some given parameters */
 export interface ColorGen {
@@ -159,7 +204,7 @@ export class ColorGradient implements ColorGen {
     const idx = value * (this.list.length - 1);
     const lowIdx = Math.floor(idx);
     const hiIdx = Math.ceil(idx);
-    if (lowIdx == idx) {
+    if (lowIdx === idx) {
       return this.list[idx];
     } else {
       const i = idx - lowIdx;
