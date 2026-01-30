@@ -210,6 +210,19 @@ export class PNode {
   }
 
   /**
+   * Removes all children.
+   * 
+   * Faster than using `this.remove(...this.children)`!
+   */
+  public clearChildren() {
+    this.children = [];
+    for (const child of this.children) {
+      (child as { parent: PNode | undefined }).parent = undefined;
+      child.moved();
+    }
+  }
+
+  /**
    * Ran when this node is "moved". Moving includes being 
    * added to a scene, being removed from a scene, or 
    * anything that changes this node's '.parent' property.
@@ -227,6 +240,16 @@ export class PNode {
   public show(): this {
     this.isHidden = false;
     return this;
+  }
+
+  /**
+   * Sets this node's hidden state.
+   * Same as using hide/show, but only changes if the state is different.
+   */
+  public setHidden(isHidden: boolean) {
+    if (this.isHidden === isHidden) return;
+    if (this.isHidden) this.show();
+    else this.hide();
   }
 
   /** Pauses this node */

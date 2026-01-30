@@ -8,9 +8,9 @@ import { Color, ColorList } from './Color';
 import { Gen } from './Gen';
 import { Texture } from './Texture';
 
-/**  */
+/** A wiggly sprite! */
 class WiggleSprite extends Sprite {
-  /**  */
+  /** Moves the sprite to the center of the screen */
   protected override process(delta: number): void {
     this.pos.lerp(
       (Math.random() - 0.5) * 10,

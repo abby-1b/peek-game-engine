@@ -160,14 +160,14 @@ export abstract class ControlNode extends PNode implements BlendModeChangeable {
       : parent.controlProperties!.sizeMultiplier;
 
     // Set this transform
-    const transform = Peek.ctx.getTransform();
+    const transform = Peek.getTransform();
     if (parent.controlProperties!.horizontalAlign) {
-      Peek.ctx.translate(
+      Peek.translate(
         Math.floor(parentHeight * parent.controlProperties!.currentChildOffset),
         0
       );
     } else {
-      Peek.ctx.translate(
+      Peek.translate(
         0,
         Math.floor(parentHeight * parent.controlProperties!.currentChildOffset)
       );
@@ -188,7 +188,7 @@ export abstract class ControlNode extends PNode implements BlendModeChangeable {
     this.hitBox.setSize(this.calculatedWidth, this.calculatedHeight);
 
     // Un-transform
-    Peek.ctx.setTransform(transform);
+    Peek.setTransform(transform);
 
     // Move on to the next child!
     if (parent.controlProperties!.positionChildren) {

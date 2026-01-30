@@ -630,19 +630,34 @@ class PeekMain {
     }
   }
 
+  public static drawImage(
+    image: CanvasImageSource,
+    x: number, y: number, width: number, height: number,
+  ): void;
+  public static drawImage(
+    image: CanvasImageSource,
+    sx: number, sy: number, swidth: number, sheight: number,
+    dx: number, dy: number, dwidth: number, dheight: number,
+  ): void;
+
   /** Draws an imagesource to the canvas */
   public static drawImage(
     image: CanvasImageSource,
-    sx: number, sy: number,
-    swidth: number, sheight: number,
-    dx: number, dy: number,
-    dwidth: number, dheight: number,
+    sx: number, sy: number, swidth: number, sheight: number,
+    dx?: number, dy?: number, dwidth?: number, dheight?: number,
   ) {
-    this.ctx.drawImage(
-      image,
-      sx, sy, swidth, sheight,
-      dx, dy, dwidth, dheight
-    );
+    if (dx === undefined) {
+      this.ctx.drawImage(
+        image,
+        sx, sy, swidth, sheight,
+      );
+    } else {
+      this.ctx.drawImage(
+        image,
+        sx, sy, swidth, sheight,
+        dx!, dy!, dwidth!, dheight!
+      );
+    }
   }
 
   /** Runs in the context of this canvas */

@@ -1,4 +1,3 @@
-import { Peek } from '../../peek';
 import { Texture } from '../../resources/Texture';
 import { TileSet } from '../../resources/TileSet';
 import { PNode } from '../PNode';
@@ -17,6 +16,7 @@ export class TileMap extends PNode {
   public static readonly TILES_PER_CHUNK = 1 << this.BITS_PER_CHUNK;
   public static readonly CHUNK_BITMASK = this.TILES_PER_CHUNK - 1;
 
+  private solidIndices = new Set<number>();
   private chunks = new Map<number, SingleChunk>();
 
   /** Constructs a tilemap */
@@ -24,6 +24,11 @@ export class TileMap extends PNode {
     public tileSet: TileSet
   ) {
     super();
+  }
+
+  /** Makes a tile index solid across the entire TileMap */
+  public makeTileSolid(tile: number) {
+    this.solidIndices.add(tile);
   }
 
   /** Gets a chunk ID from a given tile position */

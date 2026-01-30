@@ -25,7 +25,7 @@ export class Gen {
   public static bitNoise(
     width: number, height: number,
     data?: BitNoiseData
-  ) {
+  ): Texture {
     // Get the colors that the image will have
     const colors = data && data.colors
       ? data.colors
@@ -49,7 +49,7 @@ export class Gen {
   public static splatter(
     width: number, height: number,
     data?: SplatterData
-  ) {
+  ): Texture {
     // Get the ranges for the width/height of the rectangles
     const widthRange = data?.widthRange ?? [ 1, (width + height) / 20 ];
     const heightRange = data?.heightRange ?? [ 1, (width + height) / 20 ];

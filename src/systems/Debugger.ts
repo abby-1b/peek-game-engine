@@ -7,17 +7,23 @@ import { ButtonState, Input } from '../control/inputs/Input';
 import { Camera } from '../nodes/Camera';
 import { TextBox } from '../nodes/control/TextBox';
 import { DynamicBody } from '../nodes/physics/DynamicBody';
+import { StaticBody } from '../nodes/physics/StaticBody';
 import { PNode } from '../nodes/PNode';
 import { Scene } from '../nodes/Scene';
-import { TileMap } from '../nodes/tilemap/TileMap';
 import { Peek } from '../peek';
 import { Color } from '../resources/Color';
 import { Font } from '../resources/Font';
 import { CircleBox, SquareBox } from '../resources/HitBox';
-import { atlasColor, Texture } from '../resources/Texture';
+import { Texture } from '../resources/Texture';
 import { Vec2 } from '../resources/Vec';
 import { BlendMode } from '../util/BlendMode';
 import { System } from './System';
+
+const enum ShowHitboxLevel {
+  NONE = 0,
+  PHYSICS = 1,
+  ALL = 2,
+}
 
 type HookReturn =
   // Doesn't override, runs the original function
@@ -31,7 +37,7 @@ type HookReturn =
 export class Debugger extends System {
   public static isPaused = false;
   public static remainingRunFrames = 0;
-  public static showHitboxes = true;
+  public static showHitboxes: ShowHitboxLevel = ShowHitboxLevel.PHYSICS;
 
   public static font = Font.defaultFont;
 
@@ -53,8 +59,8 @@ export class Debugger extends System {
   public static focusedNodes = new Set<PNode>();
   public static debugCamera = new Camera();
 
-  public static drawFramerate = true;
-  public static drawAtlas = false;
+  public static showFramerate = true;
+  public static showAtlas = false;
   public static controller = new Controller({
     pointer: {
       mouse: true,
@@ -85,6 +91,9 @@ export class Debugger extends System {
       'stepFrame': {
         keyboardKeys: [ ']' ]
       },
+      'showAtlas': {
+        keyboardKeys: [ '`' ]
+      },
     }
   });
 
@@ -112,7 +121,7 @@ export class Debugger extends System {
 
     // Hook into `Vec2`
     Debugger.runBefore(Vec2, 'div', function(x, y) {
-      console.log('Dividing:', x, y);
+      // console.log('Dividing:', x, y);
       if (x === 0 || y === 0) Debugger.debugLog('Division by zero!');
     });
     Debugger.runBefore(Vec2, 'divVec', function(v) {
@@ -164,7 +173,7 @@ export class Debugger extends System {
         Debugger.debugLog('Font not loaded!');
       }
     });
-    Debugger.runBefore(Font, 'draw', function(text) {
+    Debugger.runBefore(Font, 'draw', function() {
       if (!(this as any).isLoaded) {
         Debugger.debugLog('Font couldn\'t load!');
         return { override: true, value: undefined };
@@ -184,21 +193,6 @@ export class Debugger extends System {
         override: true,
         value: void 0
       };
-    });
-
-    // Hook into `TileMap`
-    Debugger.runAfter(TileMap, 'draw', function() {
-      if (Debugger.showHitboxes) {
-        for (const [ , chunk ] of (this as any).chunks) {
-          Peek.rect(
-            chunk.cx * TileMap.TILES_PER_CHUNK * this.tileSet.tileWidth,
-            chunk.cy * TileMap.TILES_PER_CHUNK * this.tileSet.tileHeight,
-            TileMap.TILES_PER_CHUNK * this.tileSet.tileWidth,
-            TileMap.TILES_PER_CHUNK * this.tileSet.tileHeight,
-            Color.RED
-          );
-        }
-      }
     });
 
     // Replace the default camera with the debug camera
@@ -289,6 +283,11 @@ export class Debugger extends System {
         hitboxDrawFn(c, nest + 1);
       }
 
+      if (
+        Debugger.showHitboxes === ShowHitboxLevel.PHYSICS &&
+        !(child instanceof StaticBody)
+      ) return;
+
       // Draw this hitbox
       const hb = child.getHitbox(true);
       let zeroSize = false;
@@ -310,7 +309,13 @@ export class Debugger extends System {
         if (hb.r < 0.5) {
           zeroSize = true;
         } else {
-          Peek.circle(hb.x, hb.y, hb.r, Color.RED);
+          // Peek.circle(hb.x, hb.y, hb.r, Color.RED);
+          Peek.runInContext((ctx) => {
+            ctx.strokeStyle = Color.RED.fillStyle();
+            ctx.beginPath();
+            ctx.arc(hb.x, hb.y, hb.r, 0, 2 * Math.PI);
+            ctx.stroke();
+          });
         }
       }
 
@@ -361,7 +366,7 @@ export class Debugger extends System {
       // return;
 
       // Draw the framerate diagram
-      if (Debugger.drawFramerate) {
+      if (Debugger.showFramerate) {
         const frameRatePos =
           Debugger.frameRateToTextureY(Peek.frameRate);
         const frameRatePosSmooth =
@@ -410,7 +415,7 @@ export class Debugger extends System {
       }
 
       // Draw the texture atlas
-      if (Debugger.drawAtlas) {
+      if (Debugger.showAtlas) {
         const atlasScale = 1;
         const TextureAtlas = window.TextureAtlas;
         this.drawImage(
@@ -458,13 +463,22 @@ export class Debugger extends System {
     });
     Debugger.controller.onPress('hitboxes', () => {
       // Toggle hitboxes
-      Debugger.showHitboxes = !Debugger.showHitboxes;
+      let level: ShowHitboxLevel;
+      switch (Debugger.showHitboxes) {
+      case ShowHitboxLevel.NONE: level = ShowHitboxLevel.PHYSICS; break;
+      case ShowHitboxLevel.PHYSICS: level = ShowHitboxLevel.ALL; break;
+      case ShowHitboxLevel.ALL: level = ShowHitboxLevel.NONE; break;
+      }
+      Debugger.showHitboxes = level;
     });
     Debugger.controller.onPress('stepFrame', () => {
       if (Debugger.isPaused) {
         // Step a single frame
         Debugger.remainingRunFrames++;
       }
+    });
+    Debugger.controller.onPress('showAtlas', () => {
+      Debugger.showAtlas = !Debugger.showAtlas;
     });
 
     // Hitbox selection
@@ -570,7 +584,7 @@ export class Debugger extends System {
     });
   }
 
-  /**  */
+  /** Process loop for Debugger */
   public override process(): void {}
 
   /** Prints a debug message to the console. */

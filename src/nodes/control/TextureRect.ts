@@ -45,7 +45,7 @@ export class TextureRect extends ControlNode implements HasTexture {
     return this;
   }
 
-  /**  */
+  /** Draws the TextureRect (internal Control node override) */
   protected innerDraw(width: number, height: number): void {
     if (!this.pattern) { return; }
     const offsX = Math.round(this.offset.x);

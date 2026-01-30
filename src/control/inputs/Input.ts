@@ -5,7 +5,7 @@ import { MouseButton } from './Mouse';
 
 type GenericCallback = (...args: any[]) => void;
 
-export const enum InputType {
+export enum InputType {
   Position,
   Direction,
   Button
@@ -37,7 +37,7 @@ export class Input {
   ): void;
   public pipe<T extends string>(
     inputType: InputType.Direction,
-    fn: (x: number, y: number) => void,
+    fn: (x: number, y: number, data: string) => void,
     controller: Controller<T>
   ): void;
   public pipe<T extends string>(
@@ -93,7 +93,7 @@ export class Input {
     inputType: InputType.Position, x: number, y: number
   ): void;
   protected out(
-    inputType: InputType.Direction, x: number, y: number
+    inputType: InputType.Direction, x: number, y: number, data: string | number,
   ): void;
   protected out(
     inputType: InputType.Button, data: string | number, state: number

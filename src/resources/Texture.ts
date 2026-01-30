@@ -789,17 +789,34 @@ class TextureAtlasMain {
     }
   }
 
-  /** Draws an image to the atlas */
+  public static drawImage(
+    image: CanvasImageSource,
+    x: number, y: number, width: number, height: number,
+  ): void;
   public static drawImage(
     image: CanvasImageSource,
     sx: number, sy: number, swidth: number, sheight: number,
     dx: number, dy: number, dwidth: number, dheight: number,
-  ) {
-    this.atlas.drawImage(
-      image,
-      sx, sy, swidth, sheight,
-      dx, dy, dwidth, dheight
-    );
+  ): void;
+
+  /** Draws an image to the atlas */
+  public static drawImage(
+    image: CanvasImageSource,
+    sx: number, sy: number, swidth: number, sheight: number,
+    dx?: number, dy?: number, dwidth?: number, dheight?: number,
+  ): void {
+    if (dx === undefined) {
+      this.atlas.drawImage(
+        image,
+        sx, sy, swidth, sheight,
+      );
+    } else {
+      this.atlas.drawImage(
+        image,
+        sx, sy, swidth, sheight,
+        dx!, dy!, dwidth!, dheight!
+      );
+    }
   }
 
   /** Runs code in the context of the WHOLE atlas. */
@@ -843,7 +860,7 @@ function ratioIsBetter(
   let pb = (rb.w + bw) / (rb.h + bh);
   if (pb > 1) pb = 1 / pb;
 
-  return Peek.frameCount % 60 < 2 ? (pa + pb < ca + cb) : (pa + pb > ca + cb);
+  return Peek.frameCount % 60 > 58 ? (pa + pb < ca + cb) : (pa + pb > ca + cb);
 }
 
 type TextureAtlasInstanceType = (typeof TextureAtlasMain) & DrawWriteable;
@@ -900,12 +917,14 @@ export class Texture implements DrawReadable, DrawWriteable {
       this.atlasY = 0;
     } else {
       // The size is already provided
-      this.setSize(width, height);
+      this.setSize(~~width, ~~height);
     }
   }
 
   /** Sets the size of this texture, making sure it gets freed after its use. */
   private setSize(width: number, height: number) {
+    width = ~~width;
+    height = ~~height;
     // TODO: debugger ensure this.width and this.height == 0 before setting size
     this.width  = width;
     this.height = height;
@@ -961,7 +980,13 @@ export class Texture implements DrawReadable, DrawWriteable {
       tex.setSize(img.width, img.height);
 
       // Put the image on the atlas
-      TextureAtlas.putImage(tex.atlasX, tex.atlasY, img);
+      // TextureAtlas.putImage(tex.atlasX, tex.atlasY, img);
+      TextureAtlas.clearRect(tex.atlasX, tex.atlasY, img.width, img.height);
+      TextureAtlas.drawImage(
+        img,
+        tex.atlasX, tex.atlasY,
+        img.width, img.height
+      );
 
       // Run the callback (if any)
       if (callback) callback(true);
@@ -1175,8 +1200,8 @@ export class Texture implements DrawReadable, DrawWriteable {
    * Modifying the clone will not modify the original, as it's a copy.
    */
   public clone() {
-    const newTexture = new Texture(this.width, this.height);
-    newTexture.fill(Color.TRANSPARENT);
+    const newTexture = new Texture(this.width, this.height)
+      .fill(Color.TRANSPARENT);
     TextureAtlas.putImagePortion(
       this.atlasX, this.atlasY, this.width, this.height,
       newTexture.atlasX, newTexture.atlasY
@@ -1185,12 +1210,13 @@ export class Texture implements DrawReadable, DrawWriteable {
   }
 
   /** Fills this texture completely with the given color */
-  public fill(color: Color) {
+  public fill(color: Color): this {
     TextureAtlas.clearRect(this.atlasX, this.atlasY, this.width, this.height);
     TextureAtlas.fillRect(
       this.atlasX, this.atlasY, this.width, this.height,
       color
     );
+    return this;
   }
 
   /** Sets a pixel within the texture */
@@ -1442,19 +1468,29 @@ export class Texture implements DrawReadable, DrawWriteable {
     }
     this.tryOptimizeInAtlas();
   }
+  
+  public drawImage(
+    image: CanvasImageSource,
+    x: number, y: number, width: number, height: number,
+  ): void;
+  public drawImage(
+    image: CanvasImageSource,
+    sx: number, sy: number, swidth: number, sheight: number,
+    dx: number, dy: number, dwidth: number, dheight: number,
+  ): void;
 
-  /**  */
+  /** Draws an image to this texture */
   public drawImage(
     source: CanvasImageSource,
-    sx: number, sy: number, sw: number, sh: number,
-    dx: number, dy: number, dw: number, dh: number,
+    sx: number, sy: number, swidth: number, sheight: number,
+    dx?: number, dy?: number, dwidth?: number, dheight?: number,
   ) {
     TextureAtlas.stateSave();
     TextureAtlas.clip(this.atlasX, this.atlasY, this.width, this.height);
     TextureAtlas.drawImage(
       source,
-      sx, sy, sw, sh,
-      this.atlasX + dx, this.atlasY + dy, dw, dh
+      sx, sy, swidth, sheight,
+      this.atlasX + dx!, this.atlasY + dy!, dwidth!, dheight!
     );
     TextureAtlas.stateRestore();
   }

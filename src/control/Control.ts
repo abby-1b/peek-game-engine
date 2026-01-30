@@ -7,11 +7,12 @@
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { Vec2 } from '../resources/Vec';
+import { PGamepad, PGamepadButton } from './inputs/Gamepad';
 import { ButtonInit, ButtonState, InputType } from './inputs/Input';
 import { Keyboard } from './inputs/Keyboard';
 import { Mouse, MouseButton } from './inputs/Mouse';
 
-const ALL_INPUTS = [ Mouse, Keyboard ];
+const ALL_INPUTS = [ Mouse, Keyboard, PGamepad ];
 // TODO: Touch, GamePad
 
 interface ControllerInit<K extends string> {
@@ -102,10 +103,14 @@ export class Controller<K extends string>  {
           wasd: true,
           arrows: true
         },
+        gamepad: {
+          leftStick: true,
+        },
       },
       buttons: {
         'action': {
-          keyboardKeys: [ ' ', 'Enter' ]
+          keyboardKeys: [ ' ', 'Enter' ],
+          gamePadButtons: [ 'LB' ]
         }
       }
     });
@@ -182,11 +187,64 @@ export class Controller<K extends string>  {
           this
         );
       }
-      // If (init.directional.gamepad) {
-      //   Gamepad.pipe(InputType.Direction, (x, y) => {
-      //     This.direction.set(x, y);
-      //   }, this.id);
-      // }
+      if (init.directional.gamepad) {
+        if (init.directional.gamepad.dPad) {
+          // Map D-pad buttons to direction
+          const dpadMap: Record<string, number> = {
+            [PGamepadButton.DPAD_UP]: 0,
+            [PGamepadButton.DPAD_DOWN]: 2,
+            [PGamepadButton.DPAD_LEFT]: 1,
+            [PGamepadButton.DPAD_RIGHT]: 3,
+          };
+          
+          const pressed = [ 0, 0, 0, 0 ];
+          PGamepad.pipe(
+            InputType.Button,
+            (button: string | number, state: number) => {
+              if (!(button in dpadMap)) return;
+              pressed[dpadMap[button]] = state;
+              this.direction.set(
+                pressed[3] - pressed[1],
+                pressed[2] - pressed[0]
+              );
+              if (this.direction.length() > 1) {
+                this.direction.normalize();
+              }
+            },
+            this
+          );
+        }
+        
+        if (init.directional.gamepad.leftStick) {
+          PGamepad.pipe(
+            InputType.Direction,
+            (x: number, y: number, stickName: string) => {
+              if (stickName === 'leftStick') {
+                this.direction.set(x, y);
+              }
+            },
+            this
+          );
+        }
+        
+        if (init.directional.gamepad.rightStick) {
+          // Note: For right stick, you might want to handle it differently
+          // since the controller only has one direction vector.
+          // You could either:
+          // 1. Override left stick with right stick
+          // 2. Add both together (clamped)
+          // 3. Add a separate rightStickDirection property
+          PGamepad.pipe(
+            InputType.Direction,
+            (x: number, y: number, stickName: string) => {
+              if (stickName === 'rightStick') {
+                this.direction.set(x, y);
+              }
+            },
+            this
+          );
+        }
+      }
     }
 
     // Initialize buttons states

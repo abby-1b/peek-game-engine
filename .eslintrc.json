@@ -55,5 +55,16 @@
         "code": 80
       }
     ]
-  }
+  },
+  "overrides": [
+    {
+      "files": [
+        "projects/**/*.ts",
+        "examples/**/*.ts"
+      ],
+      "rules": {
+        "require-jsdoc": "off"
+      }
+    }
+  ]
 }

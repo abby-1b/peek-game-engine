@@ -53,6 +53,13 @@ export interface DrawWriteable {
   // Draws an image to this (cannot rely on `DrawReadable.draw`)
   drawImage(
     image: CanvasImageSource,
+    x: number, y: number,
+    width: number, height: number,
+  ): void;
+
+  // Draws an image to this (cannot rely on `DrawReadable.draw`)
+  drawImage(
+    image: CanvasImageSource,
     sx: number, sy: number,
     swidth: number, sheight: number,
     dx: number, dy: number,

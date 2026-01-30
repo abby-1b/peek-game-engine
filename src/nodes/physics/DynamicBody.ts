@@ -11,11 +11,25 @@ export class DynamicBody extends StaticBody {
    */
   public acceleration: Vec2 = Vec2.zero();
 
-  /** The base friction applied to all *NEW* DynamicBody nodes. */
+  /** The base friction applied to all DynamicBody nodes by default */
   public static baseFriction = 0.5;
 
-  /** The friction coefficient, initialized when the node is created. */
-  public friction = DynamicBody.baseFriction;
+  /** The friction coefficient */
+  private friction: number | undefined = undefined;
+
+  /** Gets the friction coefficient */
+  public getFriction() {
+    return this.friction ?? DynamicBody.baseFriction;
+  }
+
+  /**
+   * Sets the friction coefficient.
+   * Pass `undefined` to revert to the default `DynamicBody.baseFriction`
+   */
+  public setFriction(friction: number | undefined): this {
+    this.friction = friction;
+    return this;
+  }
 
   // // Used for calculating physics...
   // public newPosChange: Vec2 = Vec2.zero();
@@ -27,7 +41,7 @@ export class DynamicBody extends StaticBody {
    */
   protected override process(delta: number): void {
     this.velocity.subVec(
-      this.velocity.mulScalarRet(1 - 0.5 ** (this.friction * delta))
+      this.velocity.mulScalarRet(1 - 0.5 ** (this.getFriction() * delta))
     );
     this.velocity.addVec(this.acceleration.mulScalarRet(0.5 * delta));
 
@@ -35,7 +49,7 @@ export class DynamicBody extends StaticBody {
     // this.pos.addVec(this.acceleration.mulScalarRet(0.5 * delta ** 2));
     
     this.velocity.subVec(
-      this.velocity.mulScalarRet(1 - 0.5 ** (this.friction * delta))
+      this.velocity.mulScalarRet(1 - 0.5 ** (this.getFriction() * delta))
     );
     this.velocity.addVec(this.acceleration.mulScalarRet(0.5 * delta));
   }
