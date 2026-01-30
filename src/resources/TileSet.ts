@@ -1,4 +1,4 @@
-import { DrawWriteable } from '../util/Drawable';
+import { DrawWritable } from '../util/Drawable';
 import { Texture } from './Texture';
 
 export const enum AutotileKind {
@@ -114,7 +114,7 @@ export class TileSet {
   /** Draws a tile from this tileset onto a given source */
   public drawTile(
     tile: number, x: number, y: number,
-    destination: DrawWriteable,
+    destination: DrawWritable,
   ) {
     // TODO: check with debugger if this is in range
     const sx = tile % this.totalTilesX;

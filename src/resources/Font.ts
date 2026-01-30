@@ -1,5 +1,5 @@
 import { Peek } from '../peek';
-import { DrawWriteable } from '../util/Drawable';
+import { DrawWritable } from '../util/Drawable';
 import { Path } from '../util/Path';
 import { Vec2 } from './Vec';
 
@@ -158,7 +158,7 @@ export class Font {
   /** Draws a string */
   public draw(
     text: string, x: number, y: number,
-    destination: DrawWriteable = Peek
+    destination: DrawWritable = Peek
   ) {
     // Actually draw
     let currX = x;

@@ -1,7 +1,7 @@
 import { Peek } from '../../peek';
 import { Texture } from '../../resources/Texture';
 import { Vec2 } from '../../resources/Vec';
-import { DrawWriteable } from '../../util/Drawable';
+import { DrawWritable } from '../../util/Drawable';
 import { HasTexture } from '../../util/HasTexture';
 import { ControlNode } from './ControlNode';
 
@@ -32,7 +32,7 @@ export class TextureRect extends ControlNode implements HasTexture {
     const ctx = intermediateCanvas.getContext('2d')!;
 
     // Put the texture into the canvas
-    texture.draw(0, 0, ctx as unknown as DrawWriteable);
+    texture.draw(0, 0, ctx as unknown as DrawWritable);
     // ctx.drawImage(
     //   ...atlasSource(texture),
     //   0, 0, texture.getWidth(), texture.getHeight()

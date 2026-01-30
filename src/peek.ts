@@ -4,7 +4,7 @@ import { atlasCleanup } from './resources/Texture';
 import { Vec2 } from './resources/Vec';
 import { System } from './systems/System';
 import { BlendMode } from './util/BlendMode';
-import { DrawWriteable } from './util/Drawable';
+import { BaseDrawWritable, DrawWritable } from './util/Drawable';
 import { lerp, millisToDelta } from './util/math';
 import { AnyConstructorFor } from './util/types';
 
@@ -506,128 +506,20 @@ class PeekMain {
 
   /** Draws a centered circle at the given position. */
   public static circle(x: number, y: number, radius: number, color: Color) {
-    x = Math.floor(x);
-    y = Math.floor(y);
-    radius = ~~radius;
-
-    this.ctx.fillStyle = color.fillStyle();
-
-    let last = radius - 1;
-    for (let p = 0; p < radius; p++) {
-      const f = p / (radius - 1);
-      const h = ~~(Math.sqrt(1 - f ** 2) * radius);
-      const colHeight = (last - h) || 1;
-
-      this.ctx.fillRect(
-        x + p,
-        y + h,
-        1, colHeight
-      );
-      this.ctx.fillRect(
-        x + p,
-        y - h,
-        1, -colHeight
-      );
-      this.ctx.fillRect(
-        x - p,
-        y + h,
-        1, colHeight
-      );
-      this.ctx.fillRect(
-        x - p,
-        y - h,
-        1, -colHeight
-      );
-
-      last = h;
-    }
+    BaseDrawWritable.circle(this.ctx, x, y, radius, color);
   }
 
   /** Draws a centered, filled circle at the given position */
   public static fillCircle(x: number, y: number, radius: number, color: Color) {
-    x = Math.floor(x);
-    y = Math.floor(y);
-    radius = ~~radius;
-
-    this.ctx.fillStyle = color.fillStyle();
-    
-    for (let p = 1; p < radius; p++) {
-      const f = p / (radius - 1);
-      const h = ~~(Math.sqrt(1 - f ** 2) * radius);
-
-      this.ctx.fillRect(
-        x + p,
-        y + h,
-        1, -h * 2
-      );
-      this.ctx.fillRect(
-        x - p,
-        y + h,
-        1, -h * 2
-      );
-    }
-    this.ctx.fillRect(x, y - radius, 1, radius * 2);
+    BaseDrawWritable.fillCircle(this.ctx, x, y, radius, color);
   }
 
-  /**
-   * Draws a line using EFLA Variation D
-   * 
-   * Source: http://www.edepot.com/lined.html
-   * 
-   * @param x1 The line's start X
-   * @param y1 The line's start Y
-   * @param x2 The line's end X
-   * @param y2 The line's end Y
-   */
+  /** Draws a line */
   public static line(
     x1: number, y1: number, x2: number, y2: number,
     color: Color
   ) {
-    x1 = ~~x1;
-    x2 = ~~x2;
-    y1 = ~~y1;
-    y2 = ~~y2;
-
-    let shortLen = y2 - y1;
-    let longLen = x2 - x1;
-
-    let yLonger: boolean;
-    if (Math.abs(shortLen) > Math.abs(longLen)) {
-      const swap = shortLen;
-      shortLen = longLen;
-      longLen = swap;
-      yLonger = true;
-    } else {
-      yLonger = false;
-    }
-
-    const endVal = longLen;
-
-    let incrementVal: number;
-    if (longLen < 0) {
-      incrementVal = -1;
-      longLen = -longLen;
-    } else {
-      incrementVal = 1;
-    }
-
-    const decInc: number = longLen === 0
-      ? 0
-      : Math.floor((shortLen << 16) / longLen);
-
-    let j = 0;
-    this.ctx.fillStyle = color.fillStyle();
-    if (yLonger) {
-      for (let i = 0; i !== endVal; i += incrementVal) {
-        this.ctx.fillRect(x1 + (j >> 16), y1 + i, 1, 1);
-        j += decInc;
-      }
-    } else {
-      for (let i = 0; i !== endVal; i += incrementVal) {
-        this.ctx.fillRect(x1 + i, y1 + (j >> 16), 1, 1);
-        j += decInc;
-      }
-    }
+    BaseDrawWritable.line(this.ctx, x1, y1, x2, y2, color);
   }
 
   public static drawImage(
@@ -667,7 +559,7 @@ class PeekMain {
     callback(this.ctx);
   }
 }
-export const Peek: (typeof PeekMain) & DrawWriteable = PeekMain;
+export const Peek: (typeof PeekMain) & DrawWritable = PeekMain;
 
 // Expose the engine!
 window.Peek = Peek;
