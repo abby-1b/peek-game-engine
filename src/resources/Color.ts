@@ -1,4 +1,5 @@
-import { lerp, pickRandom } from '../util/math';
+import { lerp } from '../util/math';
+import { Gen } from './Gen.ts';
 
 /** A color defined as RGBA, with values from 0-255 */
 export class Color {
@@ -28,7 +29,7 @@ export class Color {
   /**
    * Constructs a color from a hex string,
    * in the format `#RGB`, `#RGBA`, `#RRGGBB` or `#RRGGBBAA`
-   * 
+   *
    * Eg: Color('#FF00FF80') = Color(255, 0, 255, 128)
    * @param hex The hex string
    */
@@ -37,7 +38,7 @@ export class Color {
   /**
    * Constructs a color with a given luminance for R, G, and B,
    * specified in the range of 0 to 255.
-   * 
+   *
    * Eg: Color(27) = Color(27, 27, 27, 255)
    * @param luminance The brightness of the color
    */
@@ -45,7 +46,7 @@ export class Color {
   /**
    * Constructs a color witha given luminance and alpha,
    * specified in the range of 0 to 255.
-   * 
+   *
    * Eg: Color(255, 78) = Color(255, 255, 255, 78)
    * @param luminance The brightness of the color
    * @param alpha The transparency of the color
@@ -54,7 +55,7 @@ export class Color {
   /**
    * Constructs a color with given red, green, and blue values,
    * specified in the range of 0 to 255.
-   * 
+   *
    * Eg: Color(50, 100, 150) = Color(50, 100, 150, w55)
    * @param red The amount of red
    * @param green The amount of green
@@ -64,20 +65,20 @@ export class Color {
   /**
    * Constructs a color with given red, green, blue, and alpha values,
    * specified in the range of 0 to 255.
-   * 
+   *
    * @param red The amount of red
    * @param green The amount of green
    * @param blue The amount of blue
    * @param alpha The transparency of the color
    */
   public constructor(red: number, green: number, blue: number, alpha: number);
-  
+
   /** Constructs a color */
   public constructor(
     red: number | string,
     green?: number,
     blue?: number,
-    alpha?: number
+    alpha?: number,
   ) {
     if (typeof red === 'string') {
       const hexString = red[0] === '#' ? red.slice(1) : red;
@@ -85,14 +86,18 @@ export class Color {
         this.red = parseInt(hexString[0] + hexString[0], 16);
         this.green = parseInt(hexString[1] + hexString[1], 16);
         this.blue = parseInt(hexString[2] + hexString[2], 16);
-        this.alpha = hexString.length === 3 ? 255
-          : parseInt(hexString[3] + hexString[3], 16);
+        this.alpha =
+          hexString.length === 3
+            ? 255
+            : parseInt(hexString[3] + hexString[3], 16);
       } else if (hexString.length === 6 || hexString.length === 8) {
         this.red = parseInt(hexString[0] + hexString[1], 16);
         this.green = parseInt(hexString[2] + hexString[3], 16);
         this.blue = parseInt(hexString[4] + hexString[5], 16);
-        this.alpha = hexString.length === 6 ? 255
-          : parseInt(hexString[6] + hexString[7], 16);
+        this.alpha =
+          hexString.length === 6
+            ? 255
+            : parseInt(hexString[6] + hexString[7], 16);
       } else {
         throw new Error('Malformed HEX color: ' + hexString);
       }
@@ -100,20 +105,14 @@ export class Color {
       this.red = red;
       this.green = arguments.length < 3 ? red : green!;
       this.blue = arguments.length < 3 ? red : blue!;
-      this.alpha = [ 0, 255, green!, 255, alpha! ][arguments.length];
+      this.alpha = [0, 255, green!, 255, alpha!][arguments.length];
     }
   }
 
   /** Gets the `fillStyle` string of this color. */
   public fillStyle() {
     if (!this.fillStyleCache) {
-      this.fillStyleCache = `rgba(${
-        this.red
-      },${
-        this.green
-      },${
-        this.blue
-      },${
+      this.fillStyleCache = `rgba(${this.red},${this.green},${this.blue},${
         this.alpha / 255
       })`;
     }
@@ -127,7 +126,7 @@ export class Color {
   }
 
   /** Checks if this color is the same as another */
-  public equals(color: Color) {
+  public equals(color: Color): boolean {
     return (
       this.red === color.red &&
       this.green === color.green &&
@@ -136,9 +135,33 @@ export class Color {
     );
   }
 
+  /** Checks if this color has saturation (if its color channels differ) */
+  public isSaturated(): boolean {
+    return this.red !== this.green || this.green !== this.blue;
+  }
+
   /** Returns a new color with the same RGB but a different alpha */
-  public withAlpha(alpha: number) {
+  public withAlpha(alpha: number): Color {
     return new Color(this.red, this.green, this.blue, alpha * 255);
+  }
+
+  /**
+   * Returns a new color with the RGB components multiplied by the given values.
+   */
+  public mulUnit(r: number, g: number, b: number): Color {
+    return new Color(this.red * r, this.green * g, this.blue * b, this.alpha);
+  }
+
+  /**
+   * Returns a new color with the RGB components multiplied by another color.
+   */
+  public mulColor(color: Color) {
+    return new Color(
+      this.red * (color.red / 255),
+      this.green * (color.green / 255),
+      this.blue * (color.blue / 255),
+      this.alpha,
+    );
   }
 
   /**
@@ -160,7 +183,7 @@ window.Color = Color;
 /** Generates random colors with some given parameters */
 export interface ColorGen {
   /** Generates the color */
-  gen(): Color
+  gen(): Color;
 }
 
 /** A list of colors */
@@ -173,7 +196,7 @@ export class ColorList implements ColorGen {
    * @param value A number from 0 to 1. 0 is the first color and 1 the last
    */
   public pick(value: number): Color;
-  
+
   /**
    * Picks a color from the list
    * @param value The index of the number to pick
@@ -191,7 +214,9 @@ export class ColorList implements ColorGen {
   }
 
   /** Picks a random color from the list */
-  public gen() { return pickRandom(this.list); }
+  public gen() {
+    return Gen.pickRandom(this.list);
+  }
 }
 
 /** A smooth, linearly-interpolated gradient of colors */
@@ -209,15 +234,16 @@ export class ColorGradient implements ColorGen {
     } else {
       const i = idx - lowIdx;
       return new Color(
-        lerp(this.list[lowIdx].red  , this.list[hiIdx].red  , i),
+        lerp(this.list[lowIdx].red, this.list[hiIdx].red, i),
         lerp(this.list[lowIdx].green, this.list[hiIdx].green, i),
-        lerp(this.list[lowIdx].blue , this.list[hiIdx].blue , i),
+        lerp(this.list[lowIdx].blue, this.list[hiIdx].blue, i),
         lerp(this.list[lowIdx].alpha, this.list[hiIdx].alpha, i),
       );
     }
   }
 
   /** Picks a random color from the gradient */
-  public gen() { return this.pick(Math.random()); }
+  public gen() {
+    return this.pick(Math.random());
+  }
 }
-

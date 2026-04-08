@@ -1,8 +1,11 @@
 import { Vec2 } from '../../resources/Vec';
+import { Signal } from '../../util/Signal';
 import { StaticBody } from './StaticBody';
 
 /** A physics body that moves! */
 export class DynamicBody extends StaticBody {
+  public override onCollide = new Signal<[DynamicBody | StaticBody]>();
+
   public velocity: Vec2 = Vec2.zero();
 
   /**
@@ -14,8 +17,14 @@ export class DynamicBody extends StaticBody {
   /** The base friction applied to all DynamicBody nodes by default */
   public static baseFriction = 0.5;
 
+  /** How bouncy this is! (0-1) */
+  public bounce = 0;
+
   /** The friction coefficient */
   private friction: number | undefined = undefined;
+
+  /** When true, stops this body from moving */
+  public isPinned = false;
 
   /** Gets the friction coefficient */
   public getFriction() {
@@ -39,17 +48,23 @@ export class DynamicBody extends StaticBody {
    * Deals with the dynamic body's physics. When overriding the process method,
    * make sure to call `super.process()` if you want physics to work!
    */
-  protected override process(delta: number): void {
+  protected override process(): void {
+    const delta = 1;
+    if (this.isPinned) {
+      this.velocity.set(0, 0);
+      return;
+    }
+
     this.velocity.subVec(
-      this.velocity.mulScalarRet(1 - 0.5 ** (this.getFriction() * delta))
+      this.velocity.mulScalarRet(1 - 0.5 ** (this.getFriction() * delta)),
     );
     this.velocity.addVec(this.acceleration.mulScalarRet(0.5 * delta));
 
     this.pos.addVec(this.velocity.mulScalarRet(delta));
     // this.pos.addVec(this.acceleration.mulScalarRet(0.5 * delta ** 2));
-    
+
     this.velocity.subVec(
-      this.velocity.mulScalarRet(1 - 0.5 ** (this.getFriction() * delta))
+      this.velocity.mulScalarRet(1 - 0.5 ** (this.getFriction() * delta)),
     );
     this.velocity.addVec(this.acceleration.mulScalarRet(0.5 * delta));
   }

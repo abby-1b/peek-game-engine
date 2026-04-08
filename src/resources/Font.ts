@@ -3,190 +3,380 @@ import { DrawWritable } from '../util/Drawable';
 import { Path } from '../util/Path';
 import { Vec2 } from './Vec';
 
-/** Holds the data for a font */
+/** Axis-aligned rectangle in pixel space. */
+interface GlyphRect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+/** A single extracted glyph. */
+interface Glyph {
+  rect: GlyphRect;
+  data: Uint8ClampedArray;
+}
+
+/** Raw font image as passed in by the caller. */
+interface FontImage {
+  width: number;
+  height: number;
+  data: Uint8ClampedArray;
+}
+
+/** A font loaded from an atlas image */
 export class Font {
   public static loadedFonts: Record<string, Font> = {};
 
   public static defaultFont = Font.load(
-    Path.relativeToModule(
-      import.meta.url,
-      '../resources/font-medium.png'
-    ),
-    6, 8, false
+    Path.relativeToModule(import.meta.url, '../resources/font-medium.png'),
   );
 
-  /**
-   * The image containing the font. Fonts aren't loaded into the TextureAtlas,
-   * which is done so they don't take up any space there.
-   */
-  private fontImage?: HTMLImageElement;
-
-  public isLoadedInner = false;
-  /** Checks if the font is loaded */
-  public isLoaded() {
-    return this.isLoadedInner;
-  }
-
-  private fontLoadCallbacks: ((font: Font) => void)[] = [];
-
-  private imageWidth!: number;
-  private imageHeight!: number;
-  private symbolsPerRow!: number;
-
-  public symbolSpacing = 0;
+  public symbolWidth: number = 5;
+  public symbolHeight: number = 8;
+  public symbolSpacing = 1;
   public lineSpacing = 1;
   public tabSize = 2;
 
-  /**
-   * Loads a font
-   * @param url The path to the font
-   * @param symbolWidth The individual symbol width in the font atlas
-   * @param symbolHeight The individual symbol height in the font atlas
-   * @param dynamic Whether or not the font is dynamic
-   */
-  public static load(
-    url: string,
-    symbolWidth: number,
-    symbolHeight: number,
-    isDynamic: boolean
-  ) {
-    if (url in this.loadedFonts) {
-      return this.loadedFonts[url];
-    } else {
-      const newFont = new Font(url, symbolWidth, symbolHeight, isDynamic);
-      this.loadedFonts[url] = newFont;
-      return newFont;
-    }
+  // Updated to allow a processed Canvas to act as the source image
+  private originalImage?: HTMLImageElement | HTMLCanvasElement;
+  private glyphs: Glyph[] = [];
+  private imageWidth = 0;
+  private imageHeight = 0;
+  private loaded = false;
+  private loadCallbacks: ((font: Font) => void)[] = [];
+
+  /** Constructs a font with the given symbol dimensions. */
+  private constructor() {
   }
 
-  /** Loads a font */
-  private constructor(
-    url: string,
-    public readonly symbolWidth: number,
-    public readonly symbolHeight: number,
-    public readonly isDynamic: boolean,
-  ) {
-    this.fontImage = new Image();
-    this.fontImage.onload = () => this.fontLoaded(true);
-    this.fontImage.onerror = (e) => {
-      console.log(e);
-      this.fontLoaded(false);
-    };
-    this.fontImage.src = url;
+  /** Checks if the font is loaded. */
+  public isLoaded(): boolean {
+    return this.loaded;
   }
 
-  /** Runs when the font image either loads or errors. */
-  private fontLoaded(success: boolean) {
-    if (!success) {
-      this.fontImage = undefined;
-      return;
-    }
-
-    this.imageWidth = this.fontImage!.width;
-    this.imageHeight = this.fontImage!.height;
-    this.symbolsPerRow = Math.floor(this.imageWidth / this.symbolWidth);
-    this.isLoadedInner = true;
-
-    for (const callback of this.fontLoadCallbacks) {
-      callback(this);
-    }
-    this.fontLoadCallbacks = [];
+  /** Runs the given callback when the font is loaded. */
+  public onFontLoad(callback: (font: Font) => void): void {
+    if (this.loaded) callback(this);
+    else this.loadCallbacks.push(callback);
   }
 
-  /**
-   * Runs the given callback when the font is loaded.
-   * If the font is already loaded, it runs the callback immediately.
-   */
-  public onFontLoad(callback: (font: Font) => void) {
-    if (this.isLoadedInner) {
-      callback(this);
-    } else {
-      this.fontLoadCallbacks.push(callback);
-    }
+  /** Returns the number of glyphs in this font. */
+  public getGlyphCount(): number {
+    return this.glyphs.length;
   }
 
-  /** Gets the size of a piece of text */
+  /** Returns the glyph at the given index, or undefined. */
+  public getGlyph(index: number): Glyph | undefined {
+    return this.glyphs[index];
+  }
+
+  /** Returns the width of the original font atlas image. */
+  public getImageWidth(): number {
+    return this.imageWidth;
+  }
+
+  /** Returns the height of the original font atlas image. */
+  public getImageHeight(): number {
+    return this.imageHeight;
+  }
+
+  /** Returns the bounding rectangle of the glyph in the original atlas. */
+  public getGlyphRect(index: number): GlyphRect | undefined {
+    return this.glyphs[index]?.rect;
+  }
+
+  /** Draws a glyph onto a canvas context. */
+  public drawGlyph(
+    ctx: CanvasRenderingContext2D,
+    index: number,
+    x: number,
+    y: number
+  ): boolean {
+    const glyph = this.glyphs[index];
+    if (!glyph) return false;
+
+    const imageData = new ImageData(
+      glyph.data.slice(),
+      glyph.rect.width, glyph.rect.height
+    );
+    ctx.putImageData(imageData, x, y);
+    return true;
+  }
+
+  /** Gets the size of a piece of text using proportional glyph widths. */
   public getTextSize(text: string): Vec2 {
-    if (this.isDynamic) {
-      // TODO: implement textbox sizing for dynamic-sized fonts
-      return Vec2.zero();
-    } else {
-      const totalLineHeight = this.lineSpacing + this.symbolHeight;
-      const totalSymbolWidth = this.symbolWidth + this.symbolSpacing;
+    if (!this.loaded) return Vec2.zero();
 
-      let maxLineLen = 0;
+    const sh = this.symbolHeight;
+    const ss = this.symbolSpacing;
+    const lh = sh + this.lineSpacing;
+    const tabw = this.symbolWidth * this.tabSize;
 
-      let trailingHSpace = 0;
-      let trailingVSpace = 0;
-      let lineCount = 0;
-      let lineLen = 0;
-      for (let i = 0; i < text.length; i++) {
-        const char = text[i];
-        if (char === '\n') {
-          lineLen -= trailingHSpace;
-          maxLineLen = Math.max(maxLineLen, lineLen);
-          lineLen = 0;
-          trailingHSpace = 0;
-          lineCount++;
-          trailingVSpace++;
-        } else {
-          if (char === ' ') {
-            trailingHSpace++;
-          } else {
-            if (lineCount === 0) lineCount++;
-            trailingVSpace = 0;
-          }
-          lineLen++;
-        }
+    let maxW = 0;
+    let curW = 0;
+    let lines = 0;
+    let hasText = false;
+
+    for (let i = 0, n = text.length; i < n; i++) {
+      const c = text.charCodeAt(i);
+      hasText = true;
+
+      if (c === 10) { // Newline
+        if (curW > maxW) maxW = curW;
+        curW = 0;
+        lines++;
+      } else if (c === 9) { // Tab
+        curW += tabw;
+      } else {
+        const idx = c - 32;
+        const glyph = this.glyphs[idx];
+        // Use exact glyph width if found, otherwise fallback
+        curW += (glyph ? glyph.rect.width : this.symbolWidth) + ss;
       }
-
-      lineLen -= trailingHSpace;
-      maxLineLen = Math.max(maxLineLen, lineLen);
-
-      console.log(lineCount);
-
-      // Trailing vertical space isn't counted
-      lineCount -= trailingVSpace;
-
-      return new Vec2(
-        totalSymbolWidth * maxLineLen,
-        totalLineHeight * lineCount
-      );
     }
+
+    if (hasText) lines++;
+    if (curW > maxW) maxW = curW;
+    if (maxW > 0) maxW -= ss; // Remove trailing space
+
+    return new Vec2(maxW, lh * lines);
   }
 
-  /** Draws a string */
+  /** Draws a string using the destination's drawImage method. */
   public draw(
     text: string, x: number, y: number,
     destination: DrawWritable = Peek
-  ) {
-    // Actually draw
-    let currX = x;
-    let currY = y;
-    for (const char of text) {
-      if (char === ' ') {
-        // Space
-        currX += this.symbolWidth;
-      } else if (char === '\n') {
-        // Newline
-        currX = x;
-        currY += this.symbolHeight + this.lineSpacing;
-      } else if (char === '\t') {
-        // Tab
-        currX += this.symbolWidth * this.tabSize;
+  ): void {
+    if (!this.loaded || !this.originalImage) return;
+
+    const img = this.originalImage;
+    const sw = this.symbolWidth;
+    const ss = this.symbolSpacing;
+    const lh = this.symbolHeight + this.lineSpacing;
+    const tabw = sw * this.tabSize;
+
+    let cx = x;
+    let cy = y;
+
+    for (let i = 0, n = text.length; i < n; i++) {
+      const c = text.charCodeAt(i);
+     
+      if (c === 10) { // Newline
+        cx = x;
+        cy += lh;
+      } else if (c === 9) { // Tab
+        cx += tabw;
       } else {
-        // Normal character
-        const charCode = char.charCodeAt(0);
-        const srcX = charCode % this.symbolsPerRow;
-        const srcY = ~~(charCode / this.symbolsPerRow);
-        destination.drawImage(
-          this.fontImage!,
-          srcX * this.symbolWidth, srcY * this.symbolHeight,
-          this.symbolWidth, this.symbolHeight,
-          currX, currY, this.symbolWidth, this.symbolHeight
-        );
-        currX += this.symbolWidth + this.symbolSpacing;
+        const idx = c - 32;
+        const glyph = this.glyphs[idx];
+       
+        if (glyph) {
+          if (c !== 32) {
+            const { x: sx, y: sy, width: gw, height: gh } = glyph.rect;
+            destination.drawImage(
+              img,
+              sx, sy, gw, gh,
+              cx, cy, gw, gh
+            );
+          }
+          cx += glyph.rect.width + ss;
+        } else {
+          cx += sw + ss;
+        }
       }
     }
+  }
+
+  /** Loads a font from the given URL. */
+  public static load(
+    url: string,
+  ): Font {
+    let f = Font.loadedFonts[url];
+    if (!f) {
+      f = new Font();
+      Font.loadedFonts[url] = f;
+      f._loadImage(url);
+    }
+    return f;
+  }
+
+  /** Loads the font image, pre-processes colors, and extracts glyphs. */
+  private _loadImage(url: string): void {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext('2d')!;
+      ctx.drawImage(img, 0, 0);
+     
+      const imgData = ctx.getImageData(0, 0, img.width, img.height);
+      const data = imgData.data;
+     
+      // Preserve a raw copy for _findGlyphRects so magenta flood fill works
+      const rawData = new Uint8ClampedArray(data);
+
+      // Pre-process the atlas globally so draw() naturally renders transparency
+      for (let i = 0; i < data.length; i += 4) {
+        const r = data[i], g = data[i + 1], b = data[i + 2];
+        if (Font._isMagenta(r, g, b)) {
+          // Magenta -> Transparent
+          data[i + 3] = 0;
+        } else if (r === 255 && g === 255 && b === 255) {
+          // White bounds -> Transparent
+          data[i + 3] = 0;
+        } else if (r === 0 && g === 0 && b === 0) {
+          // Black ink -> White (tintable)
+          data[i] = 255;
+          data[i + 1] = 255;
+          data[i + 2] = 255;
+          data[i + 3] = 255;
+        }
+      }
+      ctx.putImageData(imgData, 0, 0);
+
+      const fontImage: FontImage = {
+        width: img.width,
+        height: img.height,
+        data: rawData
+      };
+     
+      this._parseImage(fontImage);
+     
+      // Store the PROCESSED canvas as the master image for the draw() routine
+      this.originalImage = canvas;
+      this.loaded = true;
+      for (const cb of this.loadCallbacks) cb(this);
+      this.loadCallbacks.length = 0;
+    };
+    img.onerror = (e) => {
+      console.error(e);
+      this.loaded = false;
+    };
+    img.src = url;
+  }
+
+  /** Parses the font image to extract glyphs. */
+  private _parseImage(image: FontImage): void {
+    const rects = Font._findGlyphRects(image);
+    const sorted = Font._sortGlyphRects(rects);
+    this.glyphs = sorted.map(r => Font._extractGlyph(image, r));
+    this.imageWidth = image.width;
+    this.imageHeight = image.height;
+  }
+
+  /** Returns true for pure magenta (#ff00ff). */
+  private static _isMagenta(r: number, g: number, b: number): boolean {
+    return r === 255 && g === 0 && b === 255;
+  }
+
+  /** Reads RGB values from the buffer. */
+  private static _readRGB(
+    data: Uint8ClampedArray, idx: number
+  ): [number, number, number] {
+    return [ data[idx], data[idx + 1], data[idx + 2] ];
+  }
+
+  /** Finds bounding boxes of all non‑magenta regions. */
+  private static _findGlyphRects(image: FontImage): GlyphRect[] {
+    const { width, height, data } = image;
+    const visited = new Uint8Array(width * height);
+    const rects: GlyphRect[] = [];
+
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const pixelIndex = y * width + x;
+        if (visited[pixelIndex]) continue;
+
+        const [r, g, b] = Font._readRGB(data, pixelIndex * 4);
+        visited[pixelIndex] = 1;
+        if (Font._isMagenta(r, g, b)) continue;
+
+        let minX = x, maxX = x, minY = y, maxY = y;
+        const queue: number[] = [pixelIndex];
+        let head = 0;
+
+        while (head < queue.length) {
+          const curr = queue[head++];
+          const cx = curr % width;
+          const cy = Math.floor(curr / width);
+
+          if (cx < minX) minX = cx;
+          if (cx > maxX) maxX = cx;
+          if (cy < minY) minY = cy;
+          if (cy > maxY) maxY = cy;
+
+          const neighbours: number[] = [];
+          if (cy > 0) neighbours.push(curr - width);
+          if (cy < height - 1) neighbours.push(curr + width);
+          if (cx > 0) neighbours.push(curr - 1);
+          if (cx < width - 1) neighbours.push(curr + 1);
+
+          for (const n of neighbours) {
+            if (visited[n]) continue;
+            visited[n] = 1;
+            const [nr, ng, nb] = Font._readRGB(data, n * 4);
+            if (!Font._isMagenta(nr, ng, nb)) {
+              queue.push(n);
+            }
+          }
+        }
+
+        rects.push({
+          x: minX, y: minY,
+          width: maxX - minX + 1,
+          height: maxY - minY + 1
+        });
+      }
+    }
+
+    return rects;
+  }
+
+  /** Sorts rectangles in reading order. */
+  private static _sortGlyphRects(rects: GlyphRect[]): GlyphRect[] {
+    return [...rects].sort((a, b) => a.y - b.y || a.x - b.x);
+  }
+
+  /** Extracts a single glyph and remaps colours. */
+  private static _extractGlyph(image: FontImage, rect: GlyphRect): Glyph {
+    const { data: src, width: imgWidth } = image;
+    const { x: rx, y: ry, width: rw, height: rh } = rect;
+
+    const out = new Uint8ClampedArray(rw * rh * 4);
+
+    for (let dy = 0; dy < rh; dy++) {
+      for (let dx = 0; dx < rw; dx++) {
+        const srcIdx = ((ry + dy) * imgWidth + (rx + dx)) * 4;
+        const dstIdx = (dy * rw + dx) * 4;
+
+        const r = src[srcIdx];
+        const g = src[srcIdx + 1];
+        const b = src[srcIdx + 2];
+
+        if (r === 255 && g === 255 && b === 255) {
+          // White background becomes transparent
+          out[dstIdx] = 0;
+          out[dstIdx + 1] = 0;
+          out[dstIdx + 2] = 0;
+          out[dstIdx + 3] = 0;
+        } else if (r === 0 && g === 0 && b === 0) {
+          // Black stroke becomes white (tintable)
+          out[dstIdx] = 255;
+          out[dstIdx + 1] = 255;
+          out[dstIdx + 2] = 255;
+          out[dstIdx + 3] = 255;
+        } else {
+          // Unexpected colour: passthrough
+          out[dstIdx] = r;
+          out[dstIdx + 1] = g;
+          out[dstIdx + 2] = b;
+          out[dstIdx + 3] = 255;
+        }
+      }
+    }
+
+    return { rect, data: out };
   }
 }

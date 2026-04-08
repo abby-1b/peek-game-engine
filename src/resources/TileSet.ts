@@ -8,7 +8,7 @@ export const enum AutotileKind {
   /**
    * Tiles sit at their expected position.
    * Autotiling is enabled.
-   * 
+   *
    * Requires 3x3 bitmaps, where the center bit is ignored. Each of the 8
    * surrounding bits represents the state of the 8 neighboring tiles.
    * Needs 48 tiles to cover all cases.
@@ -18,7 +18,7 @@ export const enum AutotileKind {
   /**
    * Tile images sit at the intersection between four neighboring tiles.
    * Autotiling is enabled.
-   * 
+   *
    * Requires 2x2 bitmaps, which dictate the states of the 4 neighbor tiles.
    * Needs only 16 tiles to cover all cases.
    */
@@ -27,7 +27,7 @@ export const enum AutotileKind {
 
 /**
  * A set of tiles loaded from an image, including their matching bitmap.
- * 
+ *
  * For each tile, the corresponding bitmap should be either
  * 2x2 or 3x3 pixels in size (depending on the tileset mode).
  */
@@ -120,6 +120,24 @@ export class TileSet {
     const sx = tile % this.totalTilesX;
     const sy = ~~(tile / this.totalTilesX);
     this.texture.draw(
+      sx * this.tileWidth, sy * this.tileHeight,
+      this.tileWidth, this.tileHeight,
+      x, y,
+      this.tileWidth, this.tileHeight,
+      destination
+    );
+  }
+
+  /** Draws a tile onto a "raw" canvas */
+  public drawTileRaw(
+    tile: number, x: number, y: number,
+    destination:
+      OffscreenCanvasRenderingContext2D |
+      CanvasRenderingContext2D,
+  ) {
+    const sx = tile % this.totalTilesX;
+    const sy = ~~(tile / this.totalTilesX);
+    this.texture.drawRaw(
       sx * this.tileWidth, sy * this.tileHeight,
       this.tileWidth, this.tileHeight,
       x, y,

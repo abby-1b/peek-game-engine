@@ -1,0 +1,32 @@
+{
+  "file_scan_exclusions": [
+    "**/.git",
+    "**/.svn",
+    "**/.hg",
+    "**/CVS",
+    "**/.DS_Store",
+    "**/Thumbs.db",
+    "**/bun.lockb",
+    "**/node_modules",
+    "**/package-lock.json",
+    "**/package.json",
+    "**/.gitattributes",
+  ],
+  "languages": {
+    "TypeScript": {
+      "language_servers": [
+        "!tailwindcss-language-server", // Disables the Tailwind LSP
+        // "!typescript-language-server", // Disables the TypeScript LSP (we're using ESLint instead)
+        "!vtsls", // Disables another TypeScript LSP?
+        "...",
+      ],
+      "prettier": {
+        "singleQuote": true,
+      },
+      "formatter": "prettier",
+      "code_actions_on_format": {
+        "source.fixAll.eslint": true,
+      },
+    },
+  },
+}

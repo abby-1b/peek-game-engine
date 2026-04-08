@@ -5,8 +5,8 @@ import { BlendMode, BlendModeChangeable } from '../util/BlendMode';
 import { HasTexture } from '../util/HasTexture';
 import { HitBox } from '../resources/HitBox';
 import { PNode } from './PNode';
-import { AnimationController } from '../resources/AnimationController';
-import { AnimationData } from '../resources/AnimationData';
+import { AnimationController } from '../resources/animation/AnimationController';
+import { AnimationData } from '../resources/animation/AnimationData';
 
 /** A sprite draws a texture to the screen. */
 export class Sprite extends PNode implements HasTexture, BlendModeChangeable {
@@ -16,7 +16,7 @@ export class Sprite extends PNode implements HasTexture, BlendModeChangeable {
 
   public animation?: AnimationController;
 
-  public isCentered = true; 
+  public isCentered = true;
   public isFlipped = false;
 
   protected hitBox = new SquareBox(0, 0);
@@ -51,8 +51,8 @@ export class Sprite extends PNode implements HasTexture, BlendModeChangeable {
   }
 
   /** Processes animations */
-  protected override process(delta: number): void {
-    this.animation?.update(delta);
+  protected override process(): void {
+    this.animation?.update(1);
   }
 
   /** Draws this Sprite */
@@ -70,15 +70,16 @@ export class Sprite extends PNode implements HasTexture, BlendModeChangeable {
       let dx = sourceData.offsetX;
       let dy = sourceData.offsetY;
       if (this.isCentered) {
-        dx += Math.floor(this.scale * -this.animation.getFrameWidth() / 2);
-        dy += Math.floor(this.scale * -this.animation.getFrameHeight() / 2);
+        dx += Math.floor((this.scale * -this.animation.getFrameWidth()) / 2);
+        dy += Math.floor((this.scale * -this.animation.getFrameHeight()) / 2);
       }
       this.texture.draw(
         sourceData.x,
         sourceData.y,
         sourceData.w,
         sourceData.h,
-        dx, dy,
+        dx,
+        dy,
         this.scale * sourceData.w,
         this.scale * sourceData.h,
       );
@@ -86,11 +87,12 @@ export class Sprite extends PNode implements HasTexture, BlendModeChangeable {
       let dx = 0;
       let dy = 0;
       if (this.isCentered) {
-        dx = Math.floor(this.scale * -this.texture.getWidth()  / 2);
-        dy = Math.floor(this.scale * -this.texture.getHeight() / 2);
+        dx = Math.floor((this.scale * -this.texture.getWidth()) / 2);
+        dy = Math.floor((this.scale * -this.texture.getHeight()) / 2);
       }
       this.texture.draw(
-        dx, dy,
+        dx,
+        dy,
         this.scale * this.texture.getWidth()!,
         this.scale * this.texture.getHeight()!,
       );
@@ -100,9 +102,7 @@ export class Sprite extends PNode implements HasTexture, BlendModeChangeable {
   }
 
   /** Gets this sprite's hitbox */
-  public override getHitbox(
-    integer: boolean,
-  ): HitBox {
+  public override getHitbox(integer: boolean): HitBox {
     if (this.animation) {
       this.hitBox.w = this.animation.getFrameWidth();
       this.hitBox.h = this.animation.getFrameHeight();

@@ -1,19 +1,20 @@
 import { Peek } from '../peek';
+import { Gen } from '../resources/Gen.ts';
+import { HitBox, SquareBox } from '../resources/HitBox';
 import { Vec2 } from '../resources/Vec';
 import { interpolateDelta, lerp } from '../util/math';
 import { PNode } from './PNode';
 import { Scene } from './Scene';
 
-
 export interface FollowParams {
-  /** Whether the camera should follow the target smoothly (aka. not exactly) */
-  smooth: boolean,
+  /** Whether the camera should follow the target smoothly */
+  smooth: boolean;
 
   /** 0-1, how fast the camera should follow its target */
-  followSpeed: number,
+  followSpeed: number;
 
   /** How far ahead the camera should move */
-  aheadMultiplier: number,
+  aheadMultiplier: number;
 }
 
 /** Wherever this node goes will be centered on the screen. */
@@ -38,11 +39,29 @@ export class Camera extends PNode {
   public followParams: FollowParams = {
     smooth: false,
     followSpeed: 0.1,
-    aheadMultiplier: 2.0
+    aheadMultiplier: 2.0,
   };
-  public isActive = true;
+  private followingNode: PNode | undefined;
+  private followingNodes: PNode[] | undefined;
+  public isCurrentCamera = true;
 
-  private parentScene?: Scene;
+  /** Follows a node around the screen */
+  public follow(node: PNode | undefined, snap = true): this {
+    this.followingNode = node;
+    this.followingNodes = undefined;
+    if (snap && node !== undefined) {
+      this.x = this.lastX = node.pos.x;
+      this.y = this.lastY = node.pos.y;
+    }
+    return this;
+  }
+
+  /** Follows multiple nodes around the screen, keeping them centered! */
+  public followMultiple(nodes: PNode[]): this {
+    this.followingNode = undefined;
+    this.followingNodes = nodes;
+    return this;
+  }
 
   /** Creates a camera */
   public constructor() {
@@ -51,32 +70,26 @@ export class Camera extends PNode {
   }
 
   /** Runs when the camera is ready within the scene */
-  protected override ready(): void {
-    this.trySetupCamera();
-  }
+  protected override onEnter(): void {}
 
   /** Registers this camera in the scene */
-  protected override moved(): void {
-    this.trySetupCamera();
-  }
+  protected override onReparent(
+    oldParent: PNode | undefined,
+    newParent: PNode | undefined,
+  ): void {
+    const oldScene = oldParent?.parentScene;
+    const newScene = newParent?.parentScene;
 
-  /** Tries setting up this camera, adding it to the nearest parent scene */
-  private trySetupCamera() {
-    if (this.parentScene) {
+    if (oldScene && oldScene._innerCamera === this) {
       // Remove this camera from the old parent scene
-      this.parentScene.cameras.delete(this.id);
+      oldScene._innerCamera = undefined;
     }
 
     // Get the parent scene
-    let parent = this.parent;
-    while (!(parent instanceof Scene)) {
-      parent = parent.parent;
-      if (parent === undefined) { return; }
+    if (newScene && !newScene.getCamera()) {
+      // Add this camera to the scene list
+      newScene._innerCamera = this;
     }
-    this.parentScene = parent;
-    
-    // Add this camera to the scene's list
-    this.parentScene.cameras.set(this.id, new WeakRef(this));
   }
 
   /** Makes the camera follow its target smoothly */
@@ -97,28 +110,47 @@ export class Camera extends PNode {
   /**
    * Handles camera movement. This is called before every other
    * process function to have the exact position of the camera ready.
-   * 
+   *
    * Inactive cameras are still processed using this function,
    * and are still processed before everything else.
    */
   public cameraProcess(delta: number) {
-    const { x, y } = this.getHitbox(true);
+    let h: HitBox;
+    if (this.followingNode) {
+      h = this.followingNode.getHitbox(Peek.snapToGrid);
+    } else if (this.followingNodes) {
+      let avgX = 0;
+      let avgY = 0;
+      for (const n of this.followingNodes) {
+        const nh = n.getHitbox(Peek.snapToGrid);
+        avgX += nh.x;
+        avgY += nh.y;
+      }
+      h = new SquareBox(0, 0);
+      h.x = avgX / this.followingNodes.length;
+      h.y = avgY / this.followingNodes.length;
+    } else {
+      h = this.getHitbox(Peek.snapToGrid);
+    }
+    const { x, y } = h;
 
     if (this.followParams.smooth) {
       // Calculate smooth speed
       this.speedX = lerp(
-        0.94 * this.speedX, x - this.lastX,
-        interpolateDelta(0.3, delta)
+        0.94 * this.speedX,
+        x - this.lastX,
+        interpolateDelta(0.3, delta),
       );
       this.speedY = lerp(
-        0.94 * this.speedY, y - this.lastY,
-        interpolateDelta(0.3, delta)
+        0.94 * this.speedY,
+        y - this.lastY,
+        interpolateDelta(0.3, delta),
       );
-  
-      this.x = x; // lerp(this.x, x, this.followParams.followSpeed);
-      this.y = y; // lerp(this.y, y, this.followParams.followSpeed);
-      // this.x += this.speedX * this.followParams.aheadMultiplier;
-      // this.y += this.speedY * this.followParams.aheadMultiplier;
+
+      this.x = lerp(this.x, x, this.followParams.followSpeed);
+      this.y = lerp(this.y, y, this.followParams.followSpeed);
+      this.x += this.speedX * this.followParams.aheadMultiplier;
+      this.y += this.speedY * this.followParams.aheadMultiplier;
 
       this.lastX = x;
       this.lastY = y;
@@ -137,31 +169,36 @@ export class Camera extends PNode {
     this.shakeY = (Math.random() - 0.5) * this.shakeAmount;
   }
 
-  /** Converts screen-space to world-space coordinates given a vector */
-  public screenToWorld(v: Vec2): Vec2;
-  
-  /** Converts screen-space to world-space coordinates given an XY position */
-  public screenToWorld(x: number, y: number): Vec2;
+  /** Converts world-space to screen-space coordinates given an XY position */
+  public worldToScreen(x: number, y: number): Vec2 {
+    return new Vec2(
+      x - (this.x + this.shakeX - Peek.screenWidth * 0.5),
+      y - (this.y + this.shakeY - Peek.screenHeight * 0.5),
+    );
+  }
 
-  /** Converts screen-space to world-space coordinates */
-  public screenToWorld(a: number | Vec2, b?: number): Vec2 {
-    const out = Vec2.zero();
-
-    if (a instanceof Vec2) {
-      // Vector
-      out.setVec(a);
-    } else {
-      // Numbers (XY position)
-      out.set(a, b!);
-    }
-
-    // Transform the vector from screen-space to world-space
-    out.add(
-      this.x + this.shakeX - Peek.screenWidth  * 0.5,
+  /** Converts world-space to screen-space coordinates given a vector */
+  public worldToScreenVec(v: Vec2): Vec2 {
+    return v.subRet(
+      this.x + this.shakeX - Peek.screenWidth * 0.5,
       this.y + this.shakeY - Peek.screenHeight * 0.5,
     );
+  }
 
-    return out;
+  /** Converts screen-space to world-space coordinates given an XY position */
+  public screenToWorld(x: number, y: number): Vec2 {
+    return new Vec2(
+      x + this.x + this.shakeX - Peek.screenWidth * 0.5,
+      y + this.y + this.shakeY - Peek.screenHeight * 0.5,
+    );
+  }
+
+  /** Converts screen-space to world-space coordinates given a vector */
+  public screenToWorldVec(v: Vec2): Vec2 {
+    return v.addRet(
+      this.x + this.shakeX - Peek.screenWidth * 0.5,
+      this.y + this.shakeY - Peek.screenHeight * 0.5,
+    );
   }
 
   /**
@@ -170,25 +207,53 @@ export class Camera extends PNode {
    * screen when converted to world-space.
    */
   public getCenter() {
-    const finalX = Math.round(this.x + this.shakeX - Peek.screenWidth  * 0.5);
-    const finalY = Math.round(this.y + this.shakeY - Peek.screenHeight * 0.5);
-    return new Vec2(finalX, finalY);
+    const x = this.x + this.shakeX - Peek.screenWidth * 0.5;
+    const y = this.y + this.shakeY - Peek.screenHeight * 0.5;
+    if (Peek.snapToGrid) {
+      return new Vec2(Math.round(x), Math.round(y));
+    } else {
+      const scale = Peek.getPixelScale();
+      return new Vec2(
+        Math.round(x * scale) / scale,
+        Math.round(y * scale) / scale,
+      );
+    }
   }
 
   /** Gets the position of this camera. */
   public getCameraPos() {
-    const finalX = Math.round(this.x + this.shakeX);
-    const finalY = Math.round(this.y + this.shakeY);
-    return new Vec2(finalX, finalY);
+    const x = Math.round(this.x + this.shakeX);
+    const y = Math.round(this.y + this.shakeY);
+    if (Peek.snapToGrid) {
+      return new Vec2(Math.round(x), Math.round(y));
+    } else {
+      const scale = Peek.getPixelScale();
+      return new Vec2(
+        Math.round(x * scale) / scale,
+        Math.round(y * scale) / scale,
+      );
+    }
   }
 
   /**
    * Does the camera translation! This method is called internally by Peek.
    * It relies on `.getHitbox()` to get the global position within the scene.
+   * @internal
    */
-  public doTransform() {
-    const finalX = Math.round(this.x + this.shakeX - Peek.screenWidth  * 0.5);
-    const finalY = Math.round(this.y + this.shakeY - Peek.screenHeight * 0.5);
+  public _doTransform() {
+    let finalX = this.x + this.shakeX - Peek.screenWidth * 0.5;
+    let finalY = this.y + this.shakeY - Peek.screenHeight * 0.5;
+
+    if (Peek.snapToGrid) {
+      finalX = Math.round(finalX);
+      finalY = Math.round(finalY);
+    } else {
+      // Snap to screen pixel grid instead of virtual grid!
+      const scale = Peek.getPixelScale();
+      finalX = Math.round(finalX * scale) / scale;
+      finalY = Math.round(finalY * scale) / scale;
+    }
+
     Peek.translate(-finalX, -finalY);
   }
 }

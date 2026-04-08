@@ -5,11 +5,15 @@ import { lerp } from '../util/math';
 import { PNode } from './PNode';
 
 interface SingleParticle {
-  x: number, y: number,
-  xVel: number, yVel: number,
-  sizeBegin: number, sizeEnd: number,
-  color: Color,
-  maxLifetime: number, currLifetime: number
+  x: number;
+  y: number;
+  xVel: number;
+  yVel: number;
+  sizeBegin: number;
+  sizeEnd: number;
+  color: Color;
+  maxLifetime: number;
+  currLifetime: number;
 }
 
 /**
@@ -30,7 +34,9 @@ export class Particles extends PNode {
   public color: Color = Color.WHITE;
 
   /** Animates the particles */
-  protected override process(delta: number): void {
+  protected override process(): void {
+    const delta = 1;
+
     // Particle physics
     for (const p of this.particles) {
       p.x += p.xVel * delta;
@@ -56,17 +62,19 @@ export class Particles extends PNode {
     sizeEnd: number,
     color: Color,
     lifetime: number,
-    count: number
+    count: number,
   ): void {
     for (let i = 0; i < count; i++) {
       this.particles.add({
-        x: position[0], y: position[1],
+        x: position[0],
+        y: position[1],
         xVel: velocity[0] + (Math.random() - 0.5) * 2.0 * velocityVariation[0],
         yVel: velocity[1] + (Math.random() - 0.5) * 2.0 * velocityVariation[1],
-        sizeBegin, sizeEnd,
+        sizeBegin,
+        sizeEnd,
         color,
         maxLifetime: lifetime,
-        currLifetime: 0
+        currLifetime: 0,
       });
     }
   }
@@ -82,33 +90,26 @@ export class Particles extends PNode {
     position: [number, number],
     speed: number = 1.0,
     color: Color = Color.WHITE,
-    count: number = 2
+    count: number = 2,
   ) {
-    this.emit(
-      position,
-      [ 0, 0 ],
-      [ speed, speed ],
-      3,
-      0.6,
-      color,
-      40,
-      count
-    );
+    this.emit(position, [0, 0], [speed, speed], 3, 0.6, color, 40, count);
   }
 
   /** Draws the particles */
   protected override draw() {
-    Peek.ctx.fillStyle = this.color.fillStyle();
     for (const p of this.particles) {
       const lifetime = p.currLifetime / p.maxLifetime;
 
       const sz = Math.ceil(lerp(p.sizeBegin, p.sizeEnd, lifetime));
-      Peek.ctx.fillRect(
+      Peek.fillRect(
         Math.floor(p.x - sz / 2 + this.offset.x),
         Math.floor(p.y - sz / 2 + this.offset.y),
-        sz, sz
+        sz,
+        sz,
+        this.color,
       );
     }
   }
-
 }
+
+// TODO: TextureParticles

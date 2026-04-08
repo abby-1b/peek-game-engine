@@ -3,7 +3,7 @@ import { HitBox, SquareBox } from '../../resources/HitBox';
 import { BlendMode, BlendModeChangeable } from '../../util/BlendMode';
 import { PNode } from '../PNode';
 
-const enum SizeType {
+enum SizeType {
   /** A value in pixels */
   PIXELS,
 
@@ -16,36 +16,36 @@ const enum SizeType {
    */
   MINIMUM,
 }
-type ControlNodeSize = [ number, SizeType ];
+type ControlNodeSize = [number, SizeType];
 
 interface ControlNodeProperties {
   /** Whether or not children are positioned at all */
-  positionChildren: boolean,
+  positionChildren: boolean;
 
   /** Whether or not children are horizontally aligned */
-  horizontalAlign: boolean,
+  horizontalAlign: boolean;
 
   /** Used to know when to re-calculate sizes */
-  lastUpdateFrame: number,
+  lastUpdateFrame: number;
 
   /** The number of Control nodes this parent has */
-  childCount: number,
+  childCount: number;
 
-  sizeMultiplier: number,
+  sizeMultiplier: number;
 
-  currentChildOffset: number,
+  currentChildOffset: number;
 }
 
 /** A node with layout information. Cannot be instantiated itself! */
 export abstract class ControlNode extends PNode implements BlendModeChangeable {
-  public width: ControlNodeSize = [ 1, SizeType.FRACTION ];
-  public height: ControlNodeSize = [ 1, SizeType.FRACTION ];
+  public width: ControlNodeSize = [1, SizeType.FRACTION];
+  public height: ControlNodeSize = [1, SizeType.FRACTION];
   public controlProperties?: ControlNodeProperties;
 
   public blendMode: BlendMode = BlendMode.NORMAL;
 
   // Used for children to know their parent's size
-  protected calculatedWidth  = 0;
+  protected calculatedWidth = 0;
   protected calculatedHeight = 0;
 
   protected hitBox = new SquareBox(0, 0);
@@ -56,21 +56,21 @@ export abstract class ControlNode extends PNode implements BlendModeChangeable {
     this.width[1] = SizeType.PIXELS;
     return this;
   }
-  
+
   /** Sets this node's width as a fraction (relative to the parent) */
   public setWidthFraction(width: number): this {
     this.width[0] = width;
     this.width[1] = SizeType.FRACTION;
     return this;
   }
-  
+
   /** Sets this node's height in pixels */
   public setHeightPixels(height: number): this {
     this.height[0] = height;
     this.height[1] = SizeType.PIXELS;
     return this;
   }
-  
+
   /** Sets this node's height as a fraction (relative to the parent) */
   public setHeightFraction(height: number): this {
     this.height[0] = height;
@@ -100,12 +100,12 @@ export abstract class ControlNode extends PNode implements BlendModeChangeable {
 
   /** Draws this control node */
   protected override draw() {
-    const parent: PNode & { controlProperties?: ControlNodeProperties }
-      = this.parent;
-    let parentWidth  = Peek.screenWidth;
+    const parent: PNode & { controlProperties?: ControlNodeProperties } =
+      this.parent!;
+    let parentWidth = Peek.screenWidth;
     let parentHeight = Peek.screenHeight;
     if (parent instanceof ControlNode) {
-      parentWidth  = parent.calculatedWidth ;
+      parentWidth = parent.calculatedWidth;
       parentHeight = parent.calculatedHeight;
     }
 
@@ -117,7 +117,7 @@ export abstract class ControlNode extends PNode implements BlendModeChangeable {
         childCount: 0,
         sizeMultiplier: 1,
         currentChildOffset: 0,
-        horizontalAlign: false
+        horizontalAlign: false,
       };
     }
     if (parent.controlProperties!.lastUpdateFrame < Peek.frameCount) {
@@ -131,10 +131,12 @@ export abstract class ControlNode extends PNode implements BlendModeChangeable {
         // Children need to be positioned
         let totalSize = 0;
         for (const child of parent.getChildren()) {
-          if (!(child instanceof ControlNode)) { continue; }
-  
+          if (!(child instanceof ControlNode)) {
+            continue;
+          }
+
           parent.controlProperties!.childCount++;
-  
+
           const size = parent.controlProperties!.horizontalAlign
             ? child.width
             : child.height;
@@ -144,7 +146,7 @@ export abstract class ControlNode extends PNode implements BlendModeChangeable {
             totalSize += size[0];
           }
         }
-  
+
         parent.controlProperties!.sizeMultiplier = 1 / totalSize;
       } else {
         // Children don't need to be positioned
@@ -164,26 +166,28 @@ export abstract class ControlNode extends PNode implements BlendModeChangeable {
     if (parent.controlProperties!.horizontalAlign) {
       Peek.translate(
         Math.floor(parentHeight * parent.controlProperties!.currentChildOffset),
-        0
+        0,
       );
     } else {
       Peek.translate(
         0,
-        Math.floor(parentHeight * parent.controlProperties!.currentChildOffset)
+        Math.floor(parentHeight * parent.controlProperties!.currentChildOffset),
       );
     }
 
     // Call this innerDraw method
-    this.calculatedWidth = Math.floor(widthMultiplier * (
-      this.width[1] === SizeType.FRACTION
-        ? this.width[0] * parentWidth
-        : this.width[0]
-    ));
-    this.calculatedHeight = Math.floor(heightMultiplier * (
-      this.height[1] === SizeType.FRACTION
-        ? this.height[0] * parentHeight
-        : this.height[0]
-    ));
+    this.calculatedWidth = Math.floor(
+      widthMultiplier *
+        (this.width[1] === SizeType.FRACTION
+          ? this.width[0] * parentWidth
+          : this.width[0]),
+    );
+    this.calculatedHeight = Math.floor(
+      heightMultiplier *
+        (this.height[1] === SizeType.FRACTION
+          ? this.height[0] * parentHeight
+          : this.height[0]),
+    );
     this.innerDraw(this.calculatedWidth, this.calculatedHeight);
     this.hitBox.setSize(this.calculatedWidth, this.calculatedHeight);
 
@@ -194,22 +198,20 @@ export abstract class ControlNode extends PNode implements BlendModeChangeable {
     if (parent.controlProperties!.positionChildren) {
       if (parent.controlProperties!.horizontalAlign) {
         parent.controlProperties!.currentChildOffset +=
-          parent.controlProperties!.sizeMultiplier * (
-            this.width[1] === SizeType.FRACTION
-              ? this.width[0]
-              : this.width[0] / parentHeight
-          );
+          parent.controlProperties!.sizeMultiplier *
+          (this.width[1] === SizeType.FRACTION
+            ? this.width[0]
+            : this.width[0] / parentHeight);
       } else {
         parent.controlProperties!.currentChildOffset +=
-          parent.controlProperties!.sizeMultiplier * (
-            this.height[1] === SizeType.FRACTION
-              ? this.height[0]
-              : this.height[0] / parentHeight
-          );
+          parent.controlProperties!.sizeMultiplier *
+          (this.height[1] === SizeType.FRACTION
+            ? this.height[0]
+            : this.height[0] / parentHeight);
       }
     }
   }
-  
+
   /** Gets this sprite's hitbox */
   public override getHitbox(integer: boolean): HitBox {
     return super.getHitbox(integer, this.hitBox, false);

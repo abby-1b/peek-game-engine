@@ -22,7 +22,9 @@ class Demo3D extends Module {
     // Initialize a few random points
     for (let a = 0; a < 30; a++) {
       points.push([
-        Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5
+        Math.random() - 0.5,
+        Math.random() - 0.5,
+        Math.random() - 0.5,
       ]);
     }
 
@@ -32,7 +34,7 @@ class Demo3D extends Module {
   /** Draws lines every frame */
   public static frame() {
     // Project the points to 2D space
-    const projectedPoints = points.map(point => {
+    const projectedPoints = points.map((point) => {
       return project(point, Frame.frameCount / 30);
     });
 
@@ -61,21 +63,17 @@ function project(p: Point, angle: number): [number, number] {
   const zPush = 1;
   return [
     (x / (z + zPush)) * zoom + Frame.width / 2,
-    (y / (z + zPush)) * zoom + Frame.height / 2
+    (y / (z + zPush)) * zoom + Frame.height / 2,
   ];
 }
 
 /*
  * This bit here initializes the engine.
- * 
- * First, we tell it to load the default module, which itself initializes a few
+ * * First, we tell it to load the default module, which itself initializes a few
  * modules. We pass it the CSS selector for the canvas we're rendering to
  * (defined in `index.spl`).
- * 
- * Then, we tell the engine to load our default module,
+ * * Then, we tell the engine to load our default module,
  * which initializes itself.
  */
 
-Engine
-  .module(DefaultModule, '#cnv')
-  .module(Demo3D);
+Engine.module(DefaultModule, '#cnv').module(Demo3D);

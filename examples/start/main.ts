@@ -13,14 +13,13 @@ import { StaticBody } from '../../src/nodes/physics/StaticBody';
 import { Physics } from '../../src/systems/Physics';
 import { Gravity } from '../../src/systems/Gravity';
 
-/**  */
+
 class TestGame extends Scene {
   protected player!: DynamicBody;
   protected ground!: StaticBody;
   protected controller = Control.simpleAddController();
 
-  /**  */
-  protected ready(): void {
+   protected ready(): void {
     // Setup controller
 
     // Setup scene
@@ -46,17 +45,14 @@ class TestGame extends Scene {
     this.player.pos.add(Peek.screenWidth / 2, Peek.screenHeight / 2);
     this.ground.pos.add(Peek.screenWidth / 2, Peek.screenHeight * 0.9);
   }
-  
-  /**  */
-  protected process(): void {
+   protected process(): void {
     this.player.acceleration.set(
       this.controller.direction.x,
       this.controller.direction.y
     );
   }
 
-  /**  */
-  protected draw() {
+   protected draw() {
     Peek.ctx.fillStyle = Color.RED.fillStyle();
     // Console.log(this.controller.pointer + '');
     Peek.ctx.fillRect(...this.controller.pointer.rounded().asTuple(), 5, 5);

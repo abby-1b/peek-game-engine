@@ -2,29 +2,38 @@ import { hitboxOverlaps, SquareBox, CircleBox } from '../resources/HitBox';
 import { DynamicBody } from '../nodes/physics/DynamicBody';
 import { StaticBody } from '../nodes/physics/StaticBody';
 import { System } from './System';
-import { Signal } from '../util/Signal';
 import { Vec2 } from '../resources/Vec';
+import { Signal } from '../util/Signal';
+import { Scene } from '../nodes/Scene';
+import { PNode } from '../nodes/PNode';
 
 const maxFrames = 100;
 const ft: number[] = [];
 
-type Resolvable = { resolveVec?: Vec2, resolveCount?: number };
+type Resolvable = { resolveVec?: Vec2; resolveCount?: number };
 
 /** Processes physics! */
 export class Physics extends System {
   public objects: Set<(StaticBody | DynamicBody) & Resolvable> = new Set();
   public dynamicObjects: Set<DynamicBody & Resolvable> = new Set();
 
-  /** Initializes things necessary for physics to happen! */
-  public constructor() {
-    super();
+  /**
+   * Called by nodes that move in and out of the physics system's influence
+   * @internal
+   */
+  public _nodeMovedSignal = new Signal<[StaticBody | DynamicBody]>();
 
-    Signal.listenVirtual('Physics', 'movedNode', (object: StaticBody) => {
-      if (object.parent === undefined) {
-        this.removeObject(object);
-      } else {
-        this.addObject(object);
-      }
+  /** Initializes things necessary for physics to happen! */
+  public constructor(parent: Scene) {
+    super(parent);
+
+    this.parent.nodeAdded.connect((node) => {
+      if (!(node instanceof StaticBody)) return;
+      this.addObject(node);
+    });
+    this.parent.nodeRemoved.connect((node) => {
+      if (!(node instanceof StaticBody)) return;
+      this.removeObject(node);
     });
 
     window.Physics = this;
@@ -43,9 +52,9 @@ export class Physics extends System {
   }
 
   /**
-   * Removes an object, stopping it from being processed every frame. 
+   * Removes an object, stopping it from being processed every frame.
    * Make sure to call this in `.process()`, not in `.draw()`!
-   * @param object 
+   * @param object
    */
   public removeObject(object: StaticBody) {
     if (object instanceof DynamicBody) {
@@ -69,23 +78,28 @@ export class Physics extends System {
     }
 
     for (const objA of this.dynamicObjects) {
+      if (objA.isPinned) continue;
       for (const objB of this.objects) {
-        if (objA.bodyId === objB.bodyId) { continue; }
+        if (objA.bodyId === objB.bodyId) {
+          continue;
+        }
 
         const hba = objA.hitBox;
         const hbb = objB.hitBox;
-        if (!hitboxOverlaps(hba, hbb)) { continue; }
+        if (!hitboxOverlaps(hba, hbb)) {
+          continue;
+        }
 
         // A is always dynamic
         // B is either dynamic or static, and is never acted upon
         // (B is acted upon when it's processed as A in a later iteration)
 
-        Signal.send(objA, 'onCollide', objB);
-        Signal.send(objB, 'onCollide', objA);
+        objA.onCollide.activate(objB);
+        objB.onCollide.activate(objA);
 
         const objASpeed = objA.velocity.length() + 1;
-        const objBSpeed = objB instanceof DynamicBody
-          ? objB.velocity.length() : 0;
+        const objBSpeed =
+          objB instanceof DynamicBody ? objB.velocity.length() : 0;
 
         const aSpeedRatio = objASpeed / (objASpeed + objBSpeed);
 
@@ -98,13 +112,13 @@ export class Physics extends System {
 
         if (hba instanceof SquareBox && hbb instanceof SquareBox) {
           // Separating Axis Theorem
-          const tDiff = (hbb.y + hbb.h) - hba.y;
-          const bDiff = (hba.y + hba.h) - hbb.y;
-          const lDiff = (hbb.x + hbb.w) - hba.x;
-          const rDiff = (hba.x + hba.w) - hbb.x;
+          const tDiff = hbb.y + hbb.h - hba.y;
+          const bDiff = hba.y + hba.h - hbb.y;
+          const lDiff = hbb.x + hbb.w - hba.x;
+          const rDiff = hba.x + hba.w - hbb.x;
           const resolvePercent = aSpeedRatio;
           const resolveVec = objA.resolveVec!;
-  
+
           if (tDiff < bDiff && tDiff < lDiff && tDiff < rDiff) {
             resolveVec.add(0, tDiff * resolvePercent);
             // objA.newVelChange.add(0, -aVelY * resolvePercent);
@@ -119,22 +133,27 @@ export class Physics extends System {
             // objA.newVelChange.add(-aVelX * resolvePercent, 0);
           }
         } else if (hba instanceof SquareBox && hbb instanceof CircleBox) {
-          const nearestX = Math.max(hba.x, Math.min(hbb.x, hba.x + hba.w));
-          const nearestY = Math.max(hba.y, Math.min(hbb.y, hba.y + hba.h));
-          const dist = new Vec2(hbb.x - nearestX, hbb.y - nearestY);
-
-          const penetrationDepth = dist.length() - hbb.r;
-          dist.normalize(penetrationDepth);
-          objA.resolveVec!.addVec(dist);
+          const correction = resolveCircleAABB(
+            hbb.x,
+            hbb.y,
+            hbb.r,
+            hba.x,
+            hba.y,
+            hba.w,
+            hba.h,
+          );
+          objA.resolveVec!.addVec(correction);
         } else if (hba instanceof CircleBox && hbb instanceof SquareBox) {
-          // TODO: test that this works correctly
-          const nearestX = Math.max(hbb.x, Math.min(hba.x, hbb.x + hbb.w));
-          const nearestY = Math.max(hbb.y, Math.min(hba.y, hbb.y + hbb.h));
-          const dist = new Vec2(hba.x - nearestX, hba.y - nearestY);
-
-          const penetrationDepth = dist.length() - hba.r;
-          dist.normalize(penetrationDepth);
-          objA.resolveVec!.addVec(dist);
+          const correction = resolveCircleAABB(
+            hba.x,
+            hba.y,
+            hba.r,
+            hbb.x,
+            hbb.y,
+            hbb.w,
+            hbb.h,
+          );
+          objA.resolveVec!.addVec(correction);
         } else if (hba instanceof CircleBox && hbb instanceof CircleBox) {
           const dist = new Vec2(hba.x - hbb.x, hba.y - hbb.y);
           const penetrationDepth = dist.length() - (hba.r + hbb.r);
@@ -145,7 +164,6 @@ export class Physics extends System {
         }
         objA.resolveCount!++;
 
-        
         // Reference frame shift (back to world)
         if (movingReferenceFrame) {
           objA.velocity.addVec(objB.velocity);
@@ -155,7 +173,9 @@ export class Physics extends System {
 
     // Apply position and velocity changes
     for (const obj of this.dynamicObjects) {
-      if (!obj.resolveCount) { continue; }
+      if (!obj.resolveCount || obj.isPinned) {
+        continue;
+      }
 
       obj.pos.addVecWithScalar(obj.resolveVec!, 1 / obj.resolveCount!);
 
@@ -164,8 +184,10 @@ export class Physics extends System {
       const dot = obj.resolveVec!.dot(obj.velocity);
       if (dot <= 0) {
         // We need to restrict the velocity!
-        const bounce = 0;
-        obj.velocity.addVecWithScalar(obj.resolveVec!, (1 + bounce) * -dot);
+        obj.velocity.addVecWithScalar(
+          obj.resolveVec!,
+          (1 + (obj as DynamicBody).bounce) * -dot,
+        );
       }
     }
 
@@ -175,11 +197,48 @@ export class Physics extends System {
       ft.splice(0, 1);
     }
     ft.push(time);
-
-    // let avg = 0;
-    // for (const t of ft) {
-    //   avg += t;
-    // }
-    // console.log(avg / ft.length);
   }
+}
+
+/**  */
+function resolveCircleAABB(
+  circleX: number,
+  circleY: number,
+  radius: number,
+  boxX: number,
+  boxY: number,
+  boxW: number,
+  boxH: number,
+): Vec2 {
+  const nearestX = Math.max(boxX, Math.min(circleX, boxX + boxW));
+  const nearestY = Math.max(boxY, Math.min(circleY, boxY + boxH));
+
+  const dx = circleX - nearestX;
+  const dy = circleY - nearestY;
+
+  const distSq = dx * dx + dy * dy;
+
+  // circle inside or touching
+  if (distSq === 0) {
+    // push out along smallest axis
+    const left = circleX - boxX;
+    const right = boxX + boxW - circleX;
+    const top = circleY - boxY;
+    const bottom = boxY + boxH - circleY;
+
+    const min = Math.min(left, right, top, bottom);
+
+    if (min === left) return new Vec2(-radius, 0);
+    if (min === right) return new Vec2(radius, 0);
+    if (min === top) return new Vec2(0, -radius);
+    return new Vec2(0, radius);
+  }
+
+  const dist = Math.sqrt(distSq);
+
+  if (dist >= radius) return Vec2.zero(); // no collision
+
+  const penetration = radius - dist;
+
+  return new Vec2((dx / dist) * penetration, (dy / dist) * penetration);
 }

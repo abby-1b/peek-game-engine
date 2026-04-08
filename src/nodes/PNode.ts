@@ -1,19 +1,32 @@
 import { Peek } from '../peek';
 import { Vec2 } from '../resources/Vec';
 import { HitBox, pointIsInHitbox, SquareBox } from '../resources/HitBox';
+import { Scene } from './Scene';
+
+export enum PNodeState {
+  /** The node hasn't been initialized yet */
+  IDLE = 'IDLE',
+  /**
+   * The node is actively being initialized,
+   * or is waiting for its children to initialize
+   */
+  PRELOADING = 'PRELOADING',
+  /** The node is loaded, but isn't being actively used */
+  READY = 'READY',
+  /** The node is being actively used by Peek */
+  ACTIVE = 'ACTIVE',
+
+  /**
+   * This node is no longer being used.
+   * If it keeps existing for too long,
+   * there's probably something wrong.
+   */
+  DESTROYED = 'DESTROYED',
+}
 
 /** Something that can be displayed on the screen */
 export class PNode {
-  /** Whether or not this node is hidden */
-  public isHidden: boolean = false;
-
-  /**
-   * This determines whether or not this node is paused. Paused nodes don't get
-   * their `.process()` method called, nor their children's. Because of this,
-   * the unpause functionality has to be outside the node's process method,
-   * like in a callback, signal, or parent method.
-   */
-  public isPaused = false;
+  // --- PROPERTIES ---
 
   /** This node's position */
   public pos: Vec2 = Vec2.zero();
@@ -24,28 +37,352 @@ export class PNode {
     return this;
   }
 
-  /** This node's parent */
-  public readonly parent!: PNode;
+  /** Sets this node's position */
+  public setPosVec(v: Vec2): this {
+    this.pos.setVec(v);
+    return this;
+  }
 
   /** Initializes a Node */
   public constructor() {}
 
+  // --- NODE HIRERARCHY (PARENT-CHILD DYNAMICS) ---
+
+  /** This node's parent */
+  private innerParent?: PNode;
+
+  /** This node's parent node, which is usually only unset for `Scene` */
+  public get parent(): PNode | undefined {
+    return this.innerParent;
+  }
+
+  /** Gets this node's parent scene */
+  public get parentScene(): Scene | undefined {
+    return this.parent?.parentScene;
+  }
+
   /** This node's children */
   protected children: PNode[] = [];
-
-  // /** The amount of children that are currently being preloaded */
-  // private preloadingChildCount = 0;
 
   /** Gets this node's children */
   public getChildren(): ReadonlyArray<PNode> {
     return this.children;
   }
 
-  /** Keeps track of if this node's preload function was already called */
-  private isPreloaded: boolean = false;
+  /** Adds children to this node */
+  public add(...children: PNode[]): this {
+    for (const child of children) {
+      // Set the child's parent to be `this`
+      // This is the only place that changes a child's parent
+      child.reparentCaller(child.innerParent, this);
 
-  /** Keeps track of if this node's ready function was already called */
-  private isReady: boolean = false;
+      if (this.innerState === PNodeState.READY) child._preloadCaller();
+      if (this.innerState === PNodeState.ACTIVE)
+        child._preloadCaller().then(() => child._enterCaller());
+
+      // Add the child to our set of children
+      this.children.push(child);
+    }
+
+    // Return this
+    return this;
+  }
+
+  /** Removes some children from this node */
+  public remove(...children: PNode[]): this {
+    const childCount = children.length;
+
+    if (childCount === 0) return this;
+
+    if (childCount === 1) {
+      // Single child removal
+      const index = this.children.indexOf(children[0]);
+      children[0].reparentCaller(this, undefined);
+      if (index !== -1) {
+        this.children.splice(index, 1);
+      }
+    } else {
+      // Multiple child removal
+      const targets = new Set(children);
+      this.children = this.children.filter((child) => {
+        if (targets.has(child)) return true;
+        child.reparentCaller(this, undefined);
+        return false;
+      });
+    }
+
+    return this;
+  }
+
+  /** Removes children from this node given their indices */
+  public removeIndex(...indices: number[]): this {
+    return this.remove(...this.children.filter((_, i) => indices.includes(i)));
+  }
+
+  /** Removes this node from its parent. */
+  public removeSelf() {
+    this.innerParent?.remove(this);
+  }
+
+  /**
+   * Removes all children.
+   *
+   * Faster than using `this.remove(...this.children)`!
+   */
+  public clearChildren() {
+    this.children = [];
+    for (const child of this.children) {
+      child.reparentCaller(this, undefined);
+      child.innerParent = undefined;
+    }
+  }
+
+  /**
+   * Ran when this node is moved. Moving includes being added to another node's
+   * children, being removed from a parent, or anything that changes this
+   * node's '.parent' property.
+   */
+  protected onReparent(
+    oldParent: PNode | undefined,
+    newParent: PNode | undefined,
+  ) {
+    oldParent;
+    newParent;
+  }
+
+  /** @internal */
+  private reparentCaller(
+    oldParent: PNode | undefined,
+    newParent: PNode | undefined,
+  ) {
+    if (oldParent) oldParent.parentScene?.nodeRemoved.activate(this);
+    if (newParent) newParent.parentScene?.nodeAdded.activate(this);
+    this.onReparent(oldParent, newParent);
+    this.innerParent = newParent;
+  }
+
+  // --- LOAD STATE ---
+
+  private innerState: PNodeState = PNodeState.IDLE;
+
+  /** Gets this node's {@link PNodeState} */
+  public get state() {
+    return this.innerState;
+  }
+  /** Checks if this node is in the {@link PNodeState.ACTIVE} state. */
+  public get isActive() {
+    return this.innerState === PNodeState.ACTIVE;
+  }
+
+  private preloadPromise: Promise<void> | undefined;
+
+  /**
+   * Called at some point before the node is displayed. You should load assets,
+   * add nodes, and do everything involved with *loading* in this method.
+   *
+   * Adding nodes before this callback is highly discouraged,
+   * as they won't have a proper parent node before this point.
+   *
+   * Calls the parent's {@link PNode#preload} before the child's.
+   */
+  protected async preload() {}
+
+  /** @internal */
+  public async _preloadCaller(): Promise<void> {
+    if (this.preloadPromise) return this.preloadPromise;
+
+    this.innerState = PNodeState.PRELOADING;
+    this.preloadPromise = (async () => {
+      await this.preload();
+      await Promise.all(this.children.map((child) => child._preloadCaller()));
+      this._readyCaller();
+      // TODO: what to do with preloadPromise after this? for memory!
+    })();
+
+    return this.preloadPromise;
+  }
+
+  /**
+   * Runs once when this node finishes preloading.
+   *
+   * Calls the child's {@link PNode#onReady} before the parent's.
+   */
+  protected onReady() {}
+
+  /** @internal */
+  public _readyCaller() {
+    // Call the enter function (recursively)
+    for (const child of this.children) {
+      child._readyCaller();
+    }
+    this.innerState = PNodeState.READY;
+    this.onReady();
+  }
+
+  /**
+   * Runs whenever this node goes from ready -> active.
+   *
+   * Examples:
+   * - When this is added in the scene's constructor, and the scene becomes active
+   * - When the parent scene goes from active -> ready,
+   *   then switches back to active
+   */
+  protected onEnter() {}
+
+  /** @internal */
+  public _enterCaller() {
+    // Call the enter function (recursively)
+    for (const child of this.children) {
+      child._enterCaller();
+    }
+    this.innerState = PNodeState.ACTIVE;
+    this.onEnter();
+  }
+
+  /**
+   * Runs whenever this node goes from active -> ready.
+   *
+   * Examples:
+   * -
+   */
+  protected onSuspend() {}
+
+  /** @internal */
+  public _suspendCaller() {
+    // Call the enter function (recursively)
+    for (const child of this.children) {
+      child._suspendCaller();
+    }
+    this.innerState = PNodeState.READY;
+    this.onSuspend();
+  }
+
+  /**
+   * Runs whenever this node goes from any state -> destroyed.
+   *
+   * Examples:
+   * - When this node is removed from the scene tree
+   * - When the engine switches from this node's parent scene to another,
+   *   regardless of if it's unloaded or stays loaded
+   */
+  protected onExit() {}
+
+  /** @internal */
+  public _exitCaller() {
+    // Call the exit function (recursively)
+    for (const child of this.children) {
+      child._exitCaller();
+    }
+    this.innerState = PNodeState.DESTROYED;
+    this.onExit();
+  }
+
+  // --- PROCESSING ---
+
+  /**
+   * This determines whether or not this node is paused. Paused nodes don't get
+   * their `.process()` method called, nor their children's. Because of this,
+   * the unpause functionality has to be outside the node's process method,
+   * like in a callback, signal, or parent method.
+   */
+  public isPaused = false;
+
+  /** Pauses this node */
+  public pause(): this {
+    this.isPaused = true;
+    return this;
+  }
+  /** Pauses this node */
+  public unpause(): this {
+    this.isPaused = false;
+    return this;
+  }
+
+  /**
+   * Processes game logic! Ran every frame at some point before `.draw()`,
+   * but shouldn't be used for drawing things!
+   *
+   * Calls the parent's {@link PNode#process} first, then its children's.
+   */
+  protected process() {}
+
+  /** @internal */
+  public _processCaller() {
+    if (this.isPaused) return;
+
+    // Call the process function (recursively)
+    this.process();
+    for (const child of this.children) {
+      child._processCaller();
+    }
+  }
+
+  // --- VISUAL ---
+
+  /** Whether or not this node is hidden */
+  public isVisible: boolean = true;
+
+  /** Hides this node */
+  public hide(): this {
+    this.isVisible = false;
+    return this;
+  }
+  /** Shows this node */
+  public show(): this {
+    this.isVisible = true;
+    return this;
+  }
+
+  /**
+   * Sets this node's hidden state.
+   * Same as using hide/show, but only changes if the state is different.
+   */
+  public setVisibility(isVisible: boolean) {
+    this.isVisible = isVisible;
+  }
+
+  /**
+   * Draws this node! This should only be used for visuals, not for any
+   * important game logic, as it's not guaranteed that this function will run
+   * consistently. If you want consistency, look at `.process()`!
+   *
+   * Note that the coordinate system is transformed so that the origin (0, 0)
+   * is at the node's position. Child nodes are rendered after this node,
+   * so they appear in front of it.
+   *
+   * Calls the parent's {@link PNode#draw}, then its children's.
+   */
+  protected draw() {}
+
+  /** @internal */
+  public _drawCaller() {
+    // Don't draw if hidden!
+    if (!this.isVisible) return;
+
+    // Set this transform
+    const transform = Peek.getTransform();
+
+    if (Peek.snapToGrid) {
+      Peek.translate(Math.floor(this.pos.x), Math.floor(this.pos.y));
+    } else {
+      const scale = Peek.getPixelScale();
+      Peek.translate(
+        Math.floor(this.pos.x * scale) / scale,
+        Math.floor(this.pos.y * scale) / scale,
+      );
+    }
+
+    // Call the draw function (recursively)
+    this.draw();
+    for (const child of this.children) {
+      child._drawCaller();
+    }
+
+    // Un-transform
+    Peek.setTransform(transform);
+  }
+
+  // --- MISC HELPERS ---
 
   /**
    * Runs the given function (immediately) with this node as its argument. This
@@ -63,19 +400,19 @@ export class PNode {
   public getHitbox(
     integer: boolean,
     hitBoxObj?: HitBox,
-    centered = true
+    centered = true,
   ): HitBox {
     // Get the starting position
     const ret = hitBoxObj ?? new SquareBox(0, 0);
     ret.x = this.pos.x;
     ret.y = this.pos.y;
-    
+
     // Add parent transforms
-    let parent = this.parent;
+    let parent = this.innerParent;
     while (parent !== undefined) {
       ret.x += parent.pos.x;
       ret.y += parent.pos.y;
-      parent = parent.parent;
+      parent = parent.innerParent;
     }
 
     // Center square hitboxes
@@ -83,7 +420,7 @@ export class PNode {
       ret.x -= ret.w * 0.5;
       ret.y -= ret.h * 0.5;
     }
-    
+
     // Round
     if (integer) {
       ret.x = Math.floor(ret.x);
@@ -91,6 +428,14 @@ export class PNode {
     }
 
     return ret;
+  }
+
+  public zCropRadius = 5;
+
+  /** Sets the padding distance for occluding in a ZSort node */
+  public setZCropRadius(radius: number): this {
+    this.zCropRadius = radius;
+    return this;
   }
 
   /**
@@ -108,13 +453,10 @@ export class PNode {
    * @param count The number of nodes to retrieve
    * @returns The list of found nodes
    */
-  public getNodesAt(
-    pos: Vec2,
-    count: number
-  ): PNode[] {
+  public getNodesAt(pos: Vec2, count: number): PNode[] {
     const hits: PNode[] = [];
 
-    const queue: PNode[] = [ this ];
+    const queue: PNode[] = [this];
     while (queue.length > 0) {
       const node = queue.shift()!;
 
@@ -131,245 +473,6 @@ export class PNode {
       queue.push(...node.getChildren());
     }
 
-    console.log(queue.length);
-
     return hits;
   }
-
-  // CHILD METHODS
-  
-  /** Adds children to this node */
-  public add(...children: PNode[]): this {
-    for (const child of children) {
-      // Set the child's parent to be `this`
-      // This is the only place that changes a child's parent
-      (child as { parent: PNode }).parent = this;
-      child.moved();
-
-      // Add the child to our set of children
-      (this.children as PNode[]).push(child);
-    }
-
-    // Return this
-    return this;
-  }
-
-  /** Removes some children from this node */
-  public remove(...children: PNode[]): this {
-    /*
-    This function is made to remove multiple children at once, so has a big
-    performance optimization to make it faster than splicing each child out
-    individually. First, it sets all the removed children to undefined, then it
-    rolls the remaining children over to the empty spots.
-    */
-
-    // Replace children with undefined
-    for (let i = 0; i < this.children.length; i++) {
-      if (children.includes(this.children[i])) {
-        (this.children[i] as { parent: PNode | undefined }).parent = undefined;
-        this.children[i].moved();
-        (this.children as unknown as (PNode | undefined)[])[i] = undefined;
-      }
-    }
-
-    // Actually remove (roll children back)
-    let insert = -1;
-    let search = 0;
-    const len = this.children.length;
-    while (++insert < len) {
-      if (this.children[insert] !== undefined) continue;
-      search = insert;
-      while (
-        search < len &&
-        this.children[++search] === undefined
-      );
-
-      if (search >= len) break;
-
-      this.children[insert] = this.children[search];
-      (this.children as unknown as (PNode | undefined)[])[search] = undefined;
-    }
-
-    // Pop undefined from end
-    while (
-      this.children.length > 0 &&
-      this.children[this.children.length - 1] === undefined
-    ) this.children.pop();
-
-    return this;
-  }
-
-  /** Removes children from this node given their indices */
-  public removeIndex(...indices: number[]): this {
-    return this.remove(...this.children.filter((c, i) => indices.includes(i)));
-  }
-
-  /** Removes this node from its parent. */
-  public removeSelf() {
-    this.parent?.remove(this);
-  }
-
-  /**
-   * Removes all children.
-   * 
-   * Faster than using `this.remove(...this.children)`!
-   */
-  public clearChildren() {
-    this.children = [];
-    for (const child of this.children) {
-      (child as { parent: PNode | undefined }).parent = undefined;
-      child.moved();
-    }
-  }
-
-  /**
-   * Ran when this node is "moved". Moving includes being 
-   * added to a scene, being removed from a scene, or 
-   * anything that changes this node's '.parent' property.
-   */
-  protected moved() {}
-
-  // STATE METHODS
-
-  /** Hides this node */
-  public hide(): this {
-    this.isHidden = true;
-    return this;
-  }
-  /** Shows this node */
-  public show(): this {
-    this.isHidden = false;
-    return this;
-  }
-
-  /**
-   * Sets this node's hidden state.
-   * Same as using hide/show, but only changes if the state is different.
-   */
-  public setHidden(isHidden: boolean) {
-    if (this.isHidden === isHidden) return;
-    if (this.isHidden) this.show();
-    else this.hide();
-  }
-
-  /** Pauses this node */
-  public pause(): this {
-    this.isPaused = true;
-    return this;
-  }
-  /** Pauses this node */
-  public unpause(): this {
-    this.isPaused = false;
-    return this;
-  }
-
-  // PROCESSING METHODS
-
-  /**
-   * Calls `.preload()` after its children's.
-   * Used internally by the engine to make overriding easier!
-   */
-  public async preloadCaller() {
-    // Preload children first (recursively)
-    for (const child of this.children) {
-      if (!child.isPreloaded) await child.preloadCaller();
-    }
-
-    // Call *this* preload function after the children are loaded
-    await this.preload();
-
-    // Finally, call new children's preloads
-    for (const child of this.children) {
-      if (!child.isPreloaded) await child.preloadCaller();
-    }
-
-    this.isPreloaded = true;
-  }
-
-  /**
-   * Called at some point before the node is displayed. You should load assets,
-   * add nodes, and do everything involved with *loading* in this method.
-   * 
-   * Mostly used for async things, or anything that could take a long time.
-   */
-  protected async preload() {}
-
-  /**
-   * Calls `.ready()` after its children's. Used internally
-   * by the engine to make overriding easier! 
-   */
-  public readyCaller() {
-    // Preload children first (recursively)
-    for (const child of this.children) {
-      child.readyCaller();
-    }
-
-    // Call *this* preload function after the children are loaded
-    this.ready();
-    this.isReady = true;
-  }
-
-  /**
-   * Called at some point before the node is displayed.
-   * It is guaranteed that this function will be called exactly once before
-   * either `.process()` or `.draw()` are called.
-   */
-  protected ready() {}
-
-  /**
-   * Calls `.process()`, then its children's. This is used internally by the
-   * engine to make overriding easier!
-   * 
-   * If you want to override the process method, try overriding `.process()`.
-   */
-  public processCaller(delta: number) {
-    if (this.isPaused) return;
-
-    // Call the process function (recursively)
-    this.process(delta);
-    for (const child of this.children) {
-      child.processCaller(delta);
-    }
-  }
-
-  /**
-   * Processes game logic! Ran every frame at some point before `.draw()`,
-   * but shouldn't be used for drawing things!
-   */
-  protected process(delta: number) { delta; }
-
-  /**
-   * Calls `.draw()`, then its children's. This is used internally by the
-   * engine to make overriding easier! If you want to override the draw method,
-   * try overriding `.draw()`.
-   */
-  public drawCaller() {
-    // Don't draw if hidden!
-    if (this.isHidden) return;
-
-    // Set this transform
-    const transform = Peek.getTransform();
-    Peek.translate(Math.floor(this.pos.x), Math.floor(this.pos.y));
-
-    // Call the draw function (recursively)
-    this.draw();
-    for (const child of this.children) {
-      child.drawCaller();
-    }
-    
-    // Un-transform
-    Peek.setTransform(transform);
-  }
-
-  /**
-   * Draws this node! This should only be used for visuals, not for any
-   * important game logic, as it's not guaranteed that this function will run
-   * consistently. If you want consistency, look at `.process()`!
-   * 
-   * Note that the coordinate system is transformed so that the origin (0, 0)
-   * is at the node's position. Also, child nodes are rendered after this node,
-   * so they appear in front of it.
-   */
-  protected draw() {}
-
 }

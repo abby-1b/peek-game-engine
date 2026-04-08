@@ -11,11 +11,12 @@ import { Texture } from './Texture';
 /** A wiggly sprite! */
 class WiggleSprite extends Sprite {
   /** Moves the sprite to the center of the screen */
-  protected override process(delta: number): void {
+  protected override process(): void {
+    const delta = 1;
     this.pos.lerp(
       (Math.random() - 0.5) * 10,
       (Math.random() - 0.5) * 10,
-      0.13 ** delta
+      0.13 ** delta,
     );
   }
 }
@@ -37,19 +38,18 @@ export class StartupScene extends Scene {
 
   /** Sets up the background, particles, and image. */
   protected override async preload(): Promise<void> {
-
     // Add the background and logo
     this.add(
-      this.background = new FillRect().setColor(Color.WHITE),
-      this.centered = new PNode().add(
-        this.logo = new Sprite()
+      (this.background = new FillRect().setColor(Color.WHITE)),
+      (this.centered = new PNode().add(
+        (this.logo = new Sprite()
           .setTexture(await Texture.preload('../../assets/logo-dark.png'))
-          .hide()
-      )
+          .hide()),
+      )),
     );
-    
+
     // Add the particles
-    const particleColor = new ColorList([ new Color(20), Color.TRANSPARENT ]);
+    const particleColor = new ColorList([new Color(20), Color.TRANSPARENT]);
     const particleSize = 6;
     const particleCount = 32;
     for (let i = 0; i < particleCount; i++) {
@@ -57,19 +57,18 @@ export class StartupScene extends Scene {
         .setBlendMode(BlendMode.SUBTRACT)
         .setTexture(
           Gen.bitNoise(particleSize, particleSize, {
-            colors: particleColor
-          })
-            .maskCircle(true)
+            colors: particleColor,
+          }).maskCircle(true),
         );
       particle.pos.spreadRange(
-        0, 0,
+        0,
+        0,
         Peek.screenWidth + Peek.screenHeight,
-        (Peek.screenWidth + Peek.screenHeight) * 3
+        (Peek.screenWidth + Peek.screenHeight) * 3,
       );
       this.centered.add(particle);
       this.particles.push(particle);
     }
-
   }
 
   /** Animates the startup sequence */
@@ -90,14 +89,14 @@ export class StartupScene extends Scene {
         }
       }
     } else if (this.remainingLogoFrames === 0) {
-      Peek.loadScene(this.afterScene);
+      Peek.switchScene(this.afterScene);
     } else {
       // Change background
       this.background.color = Color.BLACK;
-  
+
       // Show logo
       this.logo.show();
-  
+
       // Remove particles
       this.centered.remove(...this.particles);
       this.particles = [];
@@ -106,5 +105,4 @@ export class StartupScene extends Scene {
       this.remainingLogoFrames--;
     }
   }
-
 }

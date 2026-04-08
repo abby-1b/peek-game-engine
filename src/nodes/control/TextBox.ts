@@ -6,7 +6,7 @@ import { ControlNode } from './ControlNode';
 
 /**
  * A box that renders text!
- * 
+ *
  * Since textboxes can change in size at any time, the resulting
  * textbox texture is stored in the texture atlas.
  */
@@ -79,7 +79,7 @@ export class TextBox extends ControlNode {
     // Ensure the texture exists & is big enough
     if (
       !this.innerTexture ||
-      this.innerTexture.getWidth()  < this.realTextSize.x ||
+      this.innerTexture.getWidth() < this.realTextSize.x ||
       this.innerTexture.getHeight() < this.realTextSize.y
     ) {
       this.innerTexture = new Texture(...this.realTextSize.asTuple());
@@ -98,14 +98,10 @@ export class TextBox extends ControlNode {
   }
 
   /** Draws the text. This has been pre-rendered to `texture` */
-  protected override innerDraw(
-    width: number,
-    height: number
-  ): void {
-    if (!this.innerTexture) { return; }
-
-    // console.log(Peek.ctx.getTransform());
-    console.log(this.innerTexture!.getWidth(), this.innerTexture!.getHeight());
+  protected override innerDraw(width: number, height: number): void {
+    if (!this.innerTexture) {
+      return;
+    }
 
     // TODO: use width and height to support line wrapping
     this.innerTexture.draw(10, 10);

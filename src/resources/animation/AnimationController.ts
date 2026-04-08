@@ -1,4 +1,4 @@
-import { deltaToMillis } from '../util/math';
+import { deltaToMillis } from '../../util/math';
 import { AnimationData, FrameData, TagData } from './AnimationData';
 
 /**
@@ -190,7 +190,7 @@ export class AnimationController {
     } else {
       this.currentFrameIndex++;
     }
-    
+   
     this.currentFrameData = this.animationData.getFrameData(
       this.currentFrameIndex
     );

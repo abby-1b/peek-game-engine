@@ -3,41 +3,21 @@
     "browser": true,
     "es2021": true
   },
-  "extends": [
-    "eslint:recommended",
-    "plugin:@typescript-eslint/recommended"
-  ],
+  "extends": ["eslint:recommended", "plugin:@typescript-eslint/recommended"],
   "parser": "@typescript-eslint/parser",
   "parserOptions": {
     "ecmaVersion": "latest",
     "sourceType": "module"
   },
-  "plugins": [
-    "@typescript-eslint",
-    "eslint-plugin-eqeqeq-fix"
-  ],
+  "plugins": ["@typescript-eslint", "eslint-plugin-eqeqeq-fix"],
   "rules": {
-    // "eqeqeq": "warn",
     "eqeqeq-fix/eqeqeq": "warn",
-    "indent": [
-      "error",
-      2
-    ],
     "@typescript-eslint/no-unused-vars": "warn",
-    "linebreak-style": [
-      "error",
-      "unix"
-    ],
-    "quotes": [
-      "error",
-      "single"
-    ],
-    "semi": [
-      "error",
-      "always"
-    ],
+    "linebreak-style": ["error", "unix"],
+    "semi": ["error", "always"],
     "require-jsdoc": [
-      "warn", {
+      "warn",
+      {
         "require": {
           "FunctionDeclaration": true,
           "MethodDefinition": true,
@@ -49,21 +29,20 @@
     ],
     "capitalized-comments": "off",
     "@typescript-eslint/explicit-member-accessibility": "error",
-    "no-throw-literal": "error",
-    "max-len": [
-      "warn", {
-        "code": 80
-      }
-    ]
+    "no-throw-literal": "error"
   },
   "overrides": [
     {
-      "files": [
-        "projects/**/*.ts",
-        "examples/**/*.ts"
-      ],
+      "files": ["projects/**/*.ts", "examples/**/*.ts", "util/**/*.ts"],
       "rules": {
-        "require-jsdoc": "off"
+        "require-jsdoc": "off",
+        "no-restricted-globals": [
+          "error",
+          {
+            "name": "fetch",
+            "message": "Direct `fetch` calls error when the project is built. Use other features to get this done instead!"
+          }
+        ]
       }
     }
   ]

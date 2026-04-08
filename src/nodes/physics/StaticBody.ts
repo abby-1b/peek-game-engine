@@ -1,6 +1,7 @@
 import { HitBox, SquareBox } from '../../resources/HitBox';
-import { PNode } from '../PNode';
 import { Signal } from '../../util/Signal';
+import { PNode } from '../PNode';
+import { DynamicBody } from './DynamicBody';
 
 /**
  * A node that has physics! This body doesn't move, as it's meant to be used as
@@ -10,6 +11,8 @@ import { Signal } from '../../util/Signal';
 export class StaticBody extends PNode {
   public static currentBodyId: number = 0;
   public readonly bodyId: number;
+
+  public onCollide = new Signal<[StaticBody | DynamicBody]>();
 
   public hitBox: HitBox = new SquareBox(0, 0);
 
@@ -27,14 +30,6 @@ export class StaticBody extends PNode {
 
   /** Gets this node's hitbox */
   public override getHitbox(integer: boolean): HitBox {
-    return super.getHitbox(
-      integer,
-      this.hitBox
-    );
-  }
-
-  /** Ensures the physics system has proper access to physics objects */
-  protected override moved(): void {
-    Signal.sendVirtual('Physics', 'movedNode', this);
+    return super.getHitbox(integer, this.hitBox);
   }
 }

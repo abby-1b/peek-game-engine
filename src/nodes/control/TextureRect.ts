@@ -15,16 +15,16 @@ export class TextureRect extends ControlNode implements HasTexture {
 
   /**
    * Sets the texture of this rect.
-   * 
+   *
    * Due to canvas limitations, this creates an intermediate canvas which is
    * then used to draw the texture repeatedly. Due to this, any changes to the
    * source texture will not be reflected after the texture is set.
-   * @param texture 
-   * @returns 
+   * @param texture
+   * @returns
    */
   public setTexture(texture: Texture): this {
     // this.texture = texture;
-    
+   
     // Create an intermediate canvas
     const intermediateCanvas = new OffscreenCanvas(
       texture.getWidth(), texture.getHeight()

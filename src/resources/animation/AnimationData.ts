@@ -37,7 +37,10 @@ export class AnimationData {
   /** Preloads a TextureAnimation from an Aseprite JSON file */
   public static async preloadAseprite(path: string): Promise<AnimationData> {
     const animation = new AnimationData();
-    const asepriteData: AsepriteData = await fetch(path).then(r => r.json());
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const fullPath = (window as any).fetchRelativeTo + path;
+    const asepriteData: AsepriteData =
+      await fetch(fullPath).then(r => r.json());
     for (let i = 0; i in asepriteData.frames; i++) {
       const frame = asepriteData.frames[i];
       animation.frameData.push({
@@ -66,7 +69,7 @@ export class AnimationData {
   /** Creates AnimationData with no tags */
   public static async separateFrames(
     frameWidth: number, frameHeight: number,
-    frameCount: number, frameDuration: number = 16.6666
+    frameCount: number, frameDuration: number = 1000 / 60
   ): Promise<AnimationData> {
     const animation = new AnimationData();
     for (let i = 0; i < frameCount; i++) {

@@ -7,8 +7,7 @@ import { Scene } from '../../src/resources/Node2D/Scene.ts';
 /** The demo module */
 class DemoButtons extends Module {
   public static scene = new Scene();
-  
-  /** Runs when the module is initiated */
+   /** Runs when the module is initiated */
   public static init() {
     super.init();
 
@@ -24,8 +23,7 @@ class DemoButtons extends Module {
 
   /** Draws lines every frame */
   public static frame() {
-    
-  }
+     }
 }
 
 Engine

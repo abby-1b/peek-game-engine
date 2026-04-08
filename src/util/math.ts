@@ -129,22 +129,3 @@ export function millisToDelta(millis: number) {
 export function deltaToMillis(delta: number) {
   return delta * 16.6666666;
 }
-
-// RANDOMNESS
-
-/**
- * Generates a random number in a specified range
- * @param start The start of the range
- * @param end The end of the range
- */
-export function randomRange(start: number, end: number) {
-  return Math.random() * (end - start) + start;
-}
-
-/**
- * Picks a random item from the given array
- * @param array
- */
-export function pickRandom<T>(array: T[]) {
-  return array[~~(Math.random() * array.length)];
-}

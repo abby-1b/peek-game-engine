@@ -1,4 +1,5 @@
-import { lerp, nerp, qerp, randomRange } from '../util/math';
+import { lerp, nerp, qerp } from '../util/math';
+import { Gen } from './Gen.ts';
 
 /** A 2D Vector */
 export class Vec2 {
@@ -8,8 +9,10 @@ export class Vec2 {
   }
 
   /** Constructs a 2D Vector */
-  public constructor(public x: number, public y: number) {}
-
+  public constructor(
+    public x: number,
+    public y: number,
+  ) {}
 
   // VECTOR MATH
 
@@ -33,7 +36,7 @@ export class Vec2 {
     this.x += x * scalar;
     this.y += y * scalar;
   }
-  
+
   /**
    * Adds the values of another vector to this one.
    * The values are multiplied by the given scalar before being added.
@@ -42,7 +45,7 @@ export class Vec2 {
     this.x += v.x * scalar;
     this.y += v.y * scalar;
   }
-  
+
   /** Subtracts the given values to this vector */
   public sub(x: number, y: number) {
     this.x -= x;
@@ -63,7 +66,7 @@ export class Vec2 {
     this.x -= x * scalar;
     this.y -= y * scalar;
   }
-  
+
   /**
    * Subtracts the values of another vector from this one.
    * The values are multiplied by the given scalar before being subtracted.
@@ -126,7 +129,7 @@ export class Vec2 {
   public addWithScalarRet(x: number, y: number, scalar: number) {
     return new Vec2(this.x + x * scalar, this.y + y * scalar);
   }
-  
+
   /**
    * Adds the values of another vector to this one, returning the mutated Vec.
    * The values are multiplied by the given scalar before being added.
@@ -158,7 +161,7 @@ export class Vec2 {
   public subWithScalarRet(x: number, y: number, scalar: number) {
     return new Vec2(this.x + x * scalar, this.y + y * scalar);
   }
-  
+
   /**
    * Subtracts the values of another vector from this one, returning the mutated
    * Vec. The values are multiplied by the given scalar before being subtracted.
@@ -197,7 +200,6 @@ export class Vec2 {
     return new Vec2(this.x / scalar, this.y / scalar);
   }
 
-
   // SETTING
 
   /** Sets the values of this vector to the passed values */
@@ -210,6 +212,11 @@ export class Vec2 {
   public setVec(v: Vec2) {
     this.x = v.x;
     this.y = v.y;
+  }
+
+  /** Tries setting this vector to another, potentially undefined value. */
+  public trySetVec(v: Vec2 | undefined) {
+    if (v) this.setVec(v);
   }
 
   /**
@@ -230,6 +237,15 @@ export class Vec2 {
     if (realLength === 0) return;
     this.x /= realLength;
     this.y /= realLength;
+  }
+
+  /** Ensures this vector doesn't go outside the given radius. */
+  public constrainToLength(maxLength: number) {
+    const currLength = this.length();
+    if (currLength <= maxLength) return;
+    const multiplier = maxLength / currLength;
+    this.x *= multiplier;
+    this.y *= multiplier;
   }
 
   /** Rounds the X and Y components (to the nearest integer) */
@@ -257,8 +273,8 @@ export class Vec2 {
     let nx = -1;
     let ny = -1;
     while (nx ** 2 + ny ** 2 > 1) {
-      nx = randomRange(-1, 1);
-      ny = randomRange(-1, 1);
+      nx = Math.randomRange(-1, 1);
+      ny = Math.randomRange(-1, 1);
     }
 
     // Transform it for our purposes
@@ -276,7 +292,7 @@ export class Vec2 {
     x: number,
     y: number,
     rangeNear: number,
-    rangeFar: number
+    rangeFar: number,
   ) {
     // Get the inner radius in the unit circle (squared)
     const innerUnitSq = (rangeNear / rangeFar) ** 2;
@@ -285,8 +301,8 @@ export class Vec2 {
     let nx = -1;
     let ny = -1;
     while (nx ** 2 + ny ** 2 > 1 || nx ** 2 + ny ** 2 < innerUnitSq) {
-      nx = randomRange(-1, 1);
-      ny = randomRange(-1, 1);
+      nx = Math.randomRange(-1, 1);
+      ny = Math.randomRange(-1, 1);
     }
 
     // Transform it for our purposes
@@ -298,7 +314,6 @@ export class Vec2 {
     return this.spreadRange(v.x, v.y, rangeNear, rangeFar);
   }
 
-  
   // INTERPOLATION
 
   /** Linearly interpolates to an XY position by a given amount */
@@ -306,31 +321,31 @@ export class Vec2 {
     this.x = lerp(this.x, x, i);
     this.y = lerp(this.y, y, i);
   }
-  
+
   /** Linearly interpolates to a vector by a given amount */
   public lerpVec(v: Vec2, i: number) {
     this.x = lerp(this.x, v.x, i);
     this.y = lerp(this.y, v.y, i);
   }
-  
+
   /** Quadratically interpolates to an XY position by a given amount */
   public qerp(x: number, y: number, i: number) {
     this.x = qerp(this.x, x, i);
     this.y = qerp(this.y, y, i);
   }
-  
+
   /** Quadratically interpolates to a vector by a given amount */
   public qerpVec(v: Vec2, i: number) {
     this.x = qerp(this.x, v.x, i);
     this.y = qerp(this.y, v.y, i);
   }
-  
+
   /** N-power interpolates to an XY position by a given amount */
   public nerp(x: number, y: number, i: number, n: number) {
     this.x = nerp(this.x, x, i, n);
     this.y = nerp(this.y, y, i, n);
   }
-  
+
   /** N-power interpolates to a vector by a given amount */
   public nerpVec(v: Vec2, i: number, n: number) {
     this.x = nerp(this.x, v.x, i, n);
@@ -343,7 +358,7 @@ export class Vec2 {
   public equals(x: number, y: number) {
     return this.x === x && this.y === y;
   }
-  
+
   /** Checks if this vector's components equal some value */
   public equalsVec(v: Vec2) {
     return this.x === v.x && this.y === v.y;
@@ -358,7 +373,7 @@ export class Vec2 {
   public distanceTo(v: Vec2) {
     return Math.hypot(this.x - v.x, this.y - v.y);
   }
-  
+
   /** Gets the squared distance from this vector to another */
   public distanceSquaredTo(v: Vec2) {
     return (this.x - v.x) ** 2 + (this.y - v.y) ** 2;
@@ -370,7 +385,7 @@ export class Vec2 {
   public length() {
     return Math.hypot(this.x, this.y);
   }
-  
+
   /** Gets the squared length of this vector (`x ** 2 + y ** 2`) */
   public lengthSquared() {
     return this.x ** 2 + this.y ** 2;
@@ -388,10 +403,7 @@ export class Vec2 {
   public normalized(targetLength = 1) {
     const realLength = Math.hypot(this.x, this.y) / targetLength;
     if (realLength === 0) return this.copy();
-    return new Vec2(
-      this.x / realLength,
-      this.y / realLength
-    );
+    return new Vec2(this.x / realLength, this.y / realLength);
   }
 
   /**
@@ -399,10 +411,7 @@ export class Vec2 {
    * components rounded to the nearest integer
    */
   public rounded() {
-    return new Vec2(
-      Math.round(this.x),
-      Math.round(this.y)
-    );
+    return new Vec2(Math.round(this.x), Math.round(this.y));
   }
 
   /**
@@ -412,10 +421,7 @@ export class Vec2 {
   public rotated(angle: number) {
     const cos = Math.cos(angle);
     const sin = Math.sin(angle);
-    return new Vec2(
-      this.x * cos + this.y * sin,
-      this.y * cos - this.x * sin,
-    );
+    return new Vec2(this.x * cos + this.y * sin, this.y * cos - this.x * sin);
   }
 
   /** Returns a copy of this vector, which can be mutated independently. */
@@ -424,8 +430,8 @@ export class Vec2 {
   }
 
   /** Returns a tuple containing the X and Y values of this vector */
-  public asTuple(): [ number, number ] {
-    return [ this.x, this.y ];
+  public asTuple(): [number, number] {
+    return [this.x, this.y];
   }
 
   /** Returns true if this vector is zero, and false otherwise */

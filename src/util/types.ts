@@ -2,11 +2,12 @@
 
 declare global {
   interface Window {
-    Peek: any,
-    Physics: any,
-    Debugger: any,
-    TextureAtlas: any,
-    Color: any,
+    Peek: any;
+    Physics: any;
+    Debugger: any;
+    TextureAtlas: any;
+    Color: any;
+    SCN: any;
   }
 }
 

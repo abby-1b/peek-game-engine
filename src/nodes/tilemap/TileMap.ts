@@ -1,11 +1,12 @@
-import { Texture } from '../../resources/Texture';
+import { Peek } from '../../peek';
 import { TileSet } from '../../resources/TileSet';
 import { PNode } from '../PNode';
 
 interface SingleChunk {
   cx: number, cy: number,
   data: number[],
-  texture: Texture,
+  canvas: OffscreenCanvas,
+  ctx: OffscreenCanvasRenderingContext2D,
 }
 
 /**
@@ -49,15 +50,27 @@ export class TileMap extends PNode {
 
   /**
    * Redraws the whole tilemap.
-   * Doesn't create new textures, just re-draws on existing ones.
+   * Doesn't create new canvases, just re-draws on existing ones.
    */
-  public redraw() {
-    for (const [ , chunk ] of this.chunks) {
-      chunk.texture.clear();
-      for (let i = 0; i < chunk.data.length; i++) {
-        const ix = i % TileMap.TILES_PER_CHUNK;
-        const iy = ~~(i / TileMap.TILES_PER_CHUNK);
-        this.updateTile(chunk, ix, iy, i);
+  public redraw(defer = false) {
+    if (defer) {
+      Peek.deferred(function *() {
+        for (const [ , chunk ] of this.chunks) {
+          for (let i = 0; i < chunk.data.length; i++) {
+            const ix = i % TileMap.TILES_PER_CHUNK;
+            const iy = ~~(i / TileMap.TILES_PER_CHUNK);
+            this.updateTile(chunk, ix, iy, i);
+            yield;
+          }
+        }
+      }, this);
+    } else {
+      for (const [ , chunk ] of this.chunks) {
+        for (let i = 0; i < chunk.data.length; i++) {
+          const ix = i % TileMap.TILES_PER_CHUNK;
+          const iy = ~~(i / TileMap.TILES_PER_CHUNK);
+          this.updateTile(chunk, ix, iy, i);
+        }
       }
     }
   }
@@ -68,16 +81,18 @@ export class TileMap extends PNode {
     const idx = TileMap.chunkIndexFromTile(x, y);
     let chunk = this.chunks.get(id);
     if (!chunk) {
+      const canvas = new OffscreenCanvas(
+        TileMap.TILES_PER_CHUNK * this.tileSet.tileWidth,
+        TileMap.TILES_PER_CHUNK * this.tileSet.tileHeight,
+      );
+      const ctx = canvas.getContext('2d')!;
       chunk = {
         cx: x >> TileMap.BITS_PER_CHUNK, cy: y >> TileMap.BITS_PER_CHUNK,
         data: new Array(TileMap.TILES_PER_CHUNK * TileMap.TILES_PER_CHUNK),
-        texture: new Texture(
-          TileMap.TILES_PER_CHUNK * this.tileSet.tileWidth,
-          TileMap.TILES_PER_CHUNK * this.tileSet.tileHeight,
-        )
+        canvas,
+        ctx,
       };
-      console.log('made chunk:', chunk.cx, chunk.cy);
-      chunk.texture.clear();
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
       this.chunks.set(id, chunk);
     }
     chunk.data[idx] = tile;
@@ -89,30 +104,32 @@ export class TileMap extends PNode {
     );
   }
 
-  /** Updates a single tile. */
+  /** Updates a single tile */
   private updateTile(chunk: SingleChunk, ix: number, iy: number, idx: number) {
-    chunk.texture.clearRect(
+    chunk.ctx.clearRect(
       ix * this.tileSet.tileWidth,
       iy * this.tileSet.tileHeight,
       this.tileSet.tileWidth,
       this.tileSet.tileHeight,
     );
-    this.tileSet.drawTile(
+    this.tileSet.drawTileRaw(
       chunk.data[idx],
       ix * this.tileSet.tileWidth,
       iy * this.tileSet.tileHeight,
-      chunk.texture
+      chunk.ctx
     );
   }
-
 
   /** Draws the tilemap */
   protected override draw(): void {
     for (const [ , chunk ] of this.chunks) {
-      chunk.texture.draw(
-        chunk.cx * TileMap.TILES_PER_CHUNK * this.tileSet.tileWidth,
-        chunk.cy * TileMap.TILES_PER_CHUNK * this.tileSet.tileHeight
-      );
+      Peek.runInContext(ctx => {
+        ctx.drawImage(
+          chunk.canvas,
+          chunk.cx * TileMap.TILES_PER_CHUNK * this.tileSet.tileWidth,
+          chunk.cy * TileMap.TILES_PER_CHUNK * this.tileSet.tileHeight
+        );
+      });
     }
   }
 

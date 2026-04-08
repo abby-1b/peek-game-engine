@@ -10,3 +10,5 @@
 **/package.json
 NEW_README.md
 projects/**/*
+build/**/*
+**/deno.lock

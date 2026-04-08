@@ -49,7 +49,7 @@ export class SquareBox implements HitBox {
 export class CircleBox implements HitBox {
   public x = 0;
   public y = 0;
-  
+ 
   /** Makes a circle hitbox */
   public constructor(
     public r: number,
